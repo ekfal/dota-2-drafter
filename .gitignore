@@ -1,0 +1,20 @@
+# Secrets — JANGAN PERNAH commit
+.env
+.env.*
+!.env.example
+
+# Dependencies & build output
+node_modules/
+.next/
+dist/
+out/
+
+# Next.js auto-gen
+next-env.d.ts
+
+# TypeScript build cache
+*.tsbuildinfo
+
+# Logs & misc
+*.log
+.DS_Store

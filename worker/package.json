@@ -1,0 +1,20 @@
+{
+  "name": "dota-draft-helper-worker",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Ingest worker: poll OpenDota /proMatches -> Supabase (matches + picks_bans).",
+  "scripts": {
+    "ingest": "tsx src/ingest.ts",
+    "ingest:local": "tsx --env-file=.env.local src/ingest.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.45.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.16.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.6.0"
+  }
+}

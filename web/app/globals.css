@@ -1,0 +1,155 @@
+/* DESIGN.md — retro Dell '96, black + sky. Flat, square, bordered. */
+
+:root {
+  /* §1 palet tertutup */
+  --frame-ink: #000000;
+  --canvas: #ffffff;
+  --ink: #000000;
+  --sky: #9ab6c8;
+  --sky-deep: #5e7d8f;
+  --link: #0000ee;
+  --link-visited: #551a8b;
+
+  /* §2 font OS-default (tanpa webfont) */
+  --font-display: "Arial Black", Helvetica, sans-serif;
+  --font-ui: Helvetica, Arial, sans-serif;
+  --font-body: "Times New Roman", Times, serif;
+
+  /* §3 spacing base 4px */
+  --container: 760px;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  border-radius: 0; /* §5 square universal */
+}
+
+html,
+body {
+  background: var(--canvas);
+  color: var(--ink);
+  font-family: var(--font-body); /* §2 body Times 14 */
+  font-size: 14px;
+  line-height: 1.4;
+}
+
+a {
+  color: var(--link);
+  text-decoration: underline;
+}
+a:visited {
+  color: var(--link-visited);
+}
+
+/* §6 page-frame — border hitam 8px keliling viewport */
+.page-frame {
+  border: 8px solid var(--frame-ink);
+  min-height: 100vh;
+}
+
+/* §6 top-banner — strip hitam atas */
+.top-banner {
+  background: var(--frame-ink);
+  color: var(--canvas);
+  padding: 12px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.top-banner h2 {
+  font-family: var(--font-ui);
+  font-size: 16px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+.top-banner .slot {
+  font-family: var(--font-ui);
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+/* §3 container — 760px center, gutter lebar */
+.container {
+  max-width: var(--container);
+  margin: 0 auto;
+  padding: 32px 16px 40px;
+}
+
+/* §6 section-eyebrow — blok sky, judul all-caps display 36/900 */
+.section-eyebrow {
+  background: var(--sky);
+  color: var(--ink);
+  padding: 24px 16px;
+  margin-bottom: 32px;
+}
+.section-eyebrow h1 {
+  font-family: var(--font-display);
+  font-size: 36px;
+  font-weight: 900;
+  text-transform: uppercase;
+  line-height: 1.05;
+}
+.section-eyebrow .sub {
+  font-family: var(--font-body);
+  font-size: 12px;
+  margin-top: 6px;
+}
+
+/* §6 data-table — header sky, body canvas, hairline hitam, no zebra */
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  border: 1px solid var(--frame-ink);
+}
+.data-table thead th {
+  background: var(--sky);
+  color: var(--ink);
+  font-family: var(--font-ui);
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  text-align: left;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--frame-ink);
+}
+.data-table td {
+  font-family: var(--font-body);
+  font-size: 14px;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--frame-ink);
+  vertical-align: top;
+}
+.data-table tbody tr:last-child td {
+  border-bottom: none;
+}
+/* §6 angka rata kanan, nama rata kiri */
+.num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.muted {
+  color: var(--sky-deep);
+}
+
+/* §6 footer-band */
+.footer-band {
+  border-top: 1px solid var(--frame-ink);
+  padding: 12px 16px;
+  font-size: 11px;
+  font-family: var(--font-body);
+}
+
+/* §7 responsif */
+@media (max-width: 768px) {
+  .page-frame {
+    border-width: 4px;
+  }
+}
+@media (max-width: 480px) {
+  .page-frame {
+    border-width: 2px;
+  }
+}
