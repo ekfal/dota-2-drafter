@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { getServerSupabase } from "@/lib/supabase";
 
 // Selalu baca fresh dari DB (bukan static prerender).
@@ -14,6 +15,7 @@ interface MatchRow {
   start_time: number | null;
   duration: number | null;
   radiant_win: boolean | null;
+  league_id: number | null;
   // Embed pakai FK hint (matches punya 2 FK ke teams -> wajib disambiguasi).
   radiant_team: TeamRef | null;
   dire_team: TeamRef | null;
@@ -47,7 +49,7 @@ export default async function MatchesPage() {
     const res = await supabase
       .from("matches")
       .select(
-        `match_id, start_time, duration, radiant_win,
+        `match_id, start_time, duration, radiant_win, league_id,
          radiant_team:teams!matches_radiant_team_id_fkey(name),
          dire_team:teams!matches_dire_team_id_fkey(name),
          league:leagues!matches_league_id_fkey(name)`
@@ -65,7 +67,9 @@ export default async function MatchesPage() {
     <main className="container">
       <section className="section-eyebrow">
         <h1>Matches</h1>
-        <div className="sub">Pro / tournament match terbaru — sumber OpenDota.</div>
+        <div className="sub">
+          Pro / tournament match terbaru — sumber OpenDota. <Link href="/tournaments">Tournaments &rarr;</Link>
+        </div>
       </section>
 
       {error ? (
@@ -88,8 +92,16 @@ export default async function MatchesPage() {
           <tbody>
             {data.map((m) => (
               <tr key={m.match_id}>
-                <td className="num">{m.match_id}</td>
-                <td>{m.league?.name ?? "—"}</td>
+                <td className="num">
+                  <Link href={`/matches/${m.match_id}`}>{m.match_id}</Link>
+                </td>
+                <td>
+                  {m.league_id ? (
+                    <Link href={`/tournaments/${m.league_id}`}>{m.league?.name ?? `League ${m.league_id}`}</Link>
+                  ) : (
+                    "—"
+                  )}
+                </td>
                 <td>{m.radiant_team?.name ?? "—"}</td>
                 <td>{m.dire_team?.name ?? "—"}</td>
                 <td>{winner(m)}</td>

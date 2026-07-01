@@ -7,6 +7,8 @@
   "scripts": {
     "ingest": "tsx src/ingest.ts",
     "ingest:local": "tsx --env-file=.env.local src/ingest.ts",
+    "aggregate": "tsx src/aggregate.ts",
+    "aggregate:local": "tsx --env-file=.env.local src/aggregate.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
