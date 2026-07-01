@@ -134,6 +134,26 @@ a:visited {
   color: var(--sky-deep);
 }
 
+/* FR-4 draft: dua kolom Radiant | Dire, stack di mobile */
+.draft-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+@media (max-width: 768px) {
+  .draft-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* FR-4 hero portrait — persegi + bevel keras (DESIGN.md §4 lvl3). Jangan rounded. */
+.hero-img {
+  display: block;
+  border: 1px solid var(--frame-ink);
+  filter: drop-shadow(2px 2px 0 #000);
+  border-radius: 0;
+}
+
 /* §6 footer-band */
 .footer-band {
   border-top: 1px solid var(--frame-ink);

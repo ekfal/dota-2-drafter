@@ -61,6 +61,7 @@ interface HeroConst {
   id: number;
   localized_name: string;
   primary_attr: string;
+  img: string; // path CDN relatif (portrait), dari /heroStats
 }
 
 // ---------- throttled OpenDota fetch (retry transient 5xx / network) ----------
@@ -156,15 +157,17 @@ async function main(): Promise<void> {
 
 // ---------- heroes seed (FK picks_bans.hero_id) ----------
 async function seedHeroes(db: SupabaseClient): Promise<void> {
-  const heroes = await opendota<HeroConst[]>("/heroes");
+  // /heroStats (bukan /heroes) karena bawa field `img` (portrait CDN). Simpan path relatif saja.
+  const heroes = await opendota<HeroConst[]>("/heroStats");
   const rows = heroes.map((h) => ({
     hero_id: h.id,
     localized_name: h.localized_name,
     primary_attr: h.primary_attr,
+    img: h.img,
   }));
   const { error } = await db.from("heroes").upsert(rows, { onConflict: "hero_id" });
   if (error) throw new Error(`upsert heroes: ${error.message}`);
-  console.log(`Seeded ${rows.length} heroes.`);
+  console.log(`Seeded ${rows.length} heroes (with img).`);
 }
 
 // ---------- per-match ingest ----------

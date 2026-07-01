@@ -52,7 +52,8 @@ create table players (
 create table heroes (
   hero_id         smallint primary key,
   localized_name  text not null,
-  primary_attr    text                    -- str/agi/int/all
+  primary_attr    text,                   -- str/agi/int/all
+  img             text                    -- path CDN relatif (/apps/dota2/...); prepend cdn.cloudflare.steamstatic.com. Slim: URL saja, tak download file.
 );
 
 -- Inti match (slim, TANPA telemetry)
