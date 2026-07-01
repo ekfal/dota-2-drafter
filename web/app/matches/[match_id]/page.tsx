@@ -26,6 +26,8 @@ interface MatchHeader {
   duration: number | null;
   radiant_win: boolean | null;
   league_id: number | null;
+  radiant_team_id: number | null;
+  dire_team_id: number | null;
   radiant_team: TeamRef | null;
   dire_team: TeamRef | null;
   league: LeagueRef | null;
@@ -118,7 +120,7 @@ export default async function MatchDetailPage({
         supabase
           .from("matches")
           .select(
-            `match_id, start_time, duration, radiant_win, league_id,
+            `match_id, start_time, duration, radiant_win, league_id, radiant_team_id, dire_team_id,
              radiant_team:teams!matches_radiant_team_id_fkey(name),
              dire_team:teams!matches_dire_team_id_fkey(name),
              league:leagues!matches_league_id_fkey(name)`
@@ -174,7 +176,17 @@ export default async function MatchDetailPage({
             <thead>
               <tr>
                 <th colSpan={2}>
-                  {rName} vs {dName}
+                  {header.radiant_team_id ? (
+                    <Link href={`/teams/${header.radiant_team_id}`}>{rName}</Link>
+                  ) : (
+                    rName
+                  )}{" "}
+                  vs{" "}
+                  {header.dire_team_id ? (
+                    <Link href={`/teams/${header.dire_team_id}`}>{dName}</Link>
+                  ) : (
+                    dName
+                  )}
                 </th>
               </tr>
             </thead>

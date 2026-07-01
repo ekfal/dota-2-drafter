@@ -154,6 +154,39 @@ a:visited {
   border-radius: 0;
 }
 
+/* §6 button primary — fill hitam, teks putih, all-caps, radius 0 */
+.btn-primary {
+  font-family: var(--font-ui);
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  background: var(--frame-ink);
+  color: var(--canvas);
+  border: 1px solid var(--frame-ink);
+  padding: 4px 10px;
+  cursor: pointer;
+  border-radius: 0;
+}
+
+/* Export PDF = print browser. Sembunyiin chrome, bersihin buat kertas + coret manual. */
+@media print {
+  .page-frame {
+    border: none;
+  }
+  .top-banner,
+  .footer-band,
+  .no-print {
+    display: none !important;
+  }
+  a {
+    color: #000;
+    text-decoration: none;
+  }
+  .hero-img {
+    filter: none; /* bevel drop-shadow boros tinta */
+  }
+}
+
 /* §6 footer-band */
 .footer-band {
   border-top: 1px solid var(--frame-ink);

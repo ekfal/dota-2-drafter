@@ -16,6 +16,8 @@ interface MatchRow {
   duration: number | null;
   radiant_win: boolean | null;
   league_id: number | null;
+  radiant_team_id: number | null;
+  dire_team_id: number | null;
   // Embed pakai FK hint (matches punya 2 FK ke teams -> wajib disambiguasi).
   radiant_team: TeamRef | null;
   dire_team: TeamRef | null;
@@ -49,7 +51,7 @@ export default async function MatchesPage() {
     const res = await supabase
       .from("matches")
       .select(
-        `match_id, start_time, duration, radiant_win, league_id,
+        `match_id, start_time, duration, radiant_win, league_id, radiant_team_id, dire_team_id,
          radiant_team:teams!matches_radiant_team_id_fkey(name),
          dire_team:teams!matches_dire_team_id_fkey(name),
          league:leagues!matches_league_id_fkey(name)`
@@ -68,7 +70,8 @@ export default async function MatchesPage() {
       <section className="section-eyebrow">
         <h1>Matches</h1>
         <div className="sub">
-          Pro / tournament match terbaru — sumber OpenDota. <Link href="/tournaments">Tournaments &rarr;</Link>
+          Pro / tournament match terbaru — sumber OpenDota. <Link href="/tournaments">Tournaments</Link> ·{" "}
+          <Link href="/teams">Teams</Link>
         </div>
       </section>
 
@@ -102,8 +105,20 @@ export default async function MatchesPage() {
                     "—"
                   )}
                 </td>
-                <td>{m.radiant_team?.name ?? "—"}</td>
-                <td>{m.dire_team?.name ?? "—"}</td>
+                <td>
+                  {m.radiant_team_id ? (
+                    <Link href={`/teams/${m.radiant_team_id}`}>{m.radiant_team?.name ?? `Team ${m.radiant_team_id}`}</Link>
+                  ) : (
+                    "—"
+                  )}
+                </td>
+                <td>
+                  {m.dire_team_id ? (
+                    <Link href={`/teams/${m.dire_team_id}`}>{m.dire_team?.name ?? `Team ${m.dire_team_id}`}</Link>
+                  ) : (
+                    "—"
+                  )}
+                </td>
                 <td>{winner(m)}</td>
                 <td className="num">{fmtDate(m.start_time)}</td>
                 <td className="num">{fmtDuration(m.duration)}</td>
