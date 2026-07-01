@@ -15,7 +15,9 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 // ---------- env ----------
 const SUPABASE_URL = requireEnv("SUPABASE_URL");
 const SUPABASE_SERVICE_KEY = requireEnv("SUPABASE_SERVICE_KEY");
-const OPENDOTA_API_KEY = process.env.OPENDOTA_API_KEY ?? "";
+// Anggap TIDAK ADA key kalau kosong atau "none" (case-insensitive) — jangan tempel ?api_key.
+const rawKey = (process.env.OPENDOTA_API_KEY ?? "").trim();
+const OPENDOTA_API_KEY = rawKey.toLowerCase() === "none" ? "" : rawKey;
 const MAX_MATCHES = Number(process.env.INGEST_MAX_MATCHES ?? "25");
 
 // Throttle OpenDota: tanpa key ~60 req/min -> 1.1s; dgn key lebih longgar -> 0.35s.
