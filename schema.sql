@@ -37,7 +37,8 @@ create table teams (
   team_id     bigint  primary key,
   name        text,
   tag         text,
-  rating      real                        -- Elo OpenDota
+  rating      real,                       -- Elo OpenDota
+  logo_url    text                        -- dari /teams/{id}, buat header team (DESIGN v2)
 );
 
 -- Pemain + roster
@@ -85,7 +86,10 @@ create table match_players (
   hero_id     smallint not null references heroes(hero_id),
   is_radiant  boolean  not null,
   win         boolean,
-  lane_role   smallint,                    -- F2: 1-4 OpenDota (Safe/Mid/Off/Jungle), null pra-parse
+  lane_role   smallint,                    -- 1-4 OpenDota (Safe/Mid/Off/Jungle), null pra-parse
+  player_slot smallint,                    -- 0-4 radiant, 128-132 dire
+  net_worth   int,                         -- buat ranking core/support (slim, tak simpan gold_t/xp_t)
+  position    smallint,                    -- derived 1-5 (heuristik net-worth-first), recomputable
   primary key (match_id, hero_id)
 );
 

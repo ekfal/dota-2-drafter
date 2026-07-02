@@ -11,6 +11,7 @@
  *      INGEST_MAX_MATCHES (batas match baru per run).
  */
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import { derivePositions } from "./positions";
 
 // ---------- env ----------
 const SUPABASE_URL = requireEnv("SUPABASE_URL");
@@ -52,9 +53,22 @@ interface PickBan {
   order: number;
 }
 
+interface MatchPlayer {
+  account_id: number | null;
+  player_slot: number;
+  hero_id: number;
+  isRadiant: boolean;
+  win: number; // 1 menang, 0 kalah
+  lane_role: number | null;
+  net_worth: number | null;
+  name: string | null; // nama pro (kalau ada)
+  personaname: string | null; // steam persona
+}
+
 interface MatchDetail {
   match_id: number;
   picks_bans: PickBan[] | null; // null jika non-Captains-Mode / belum tersedia
+  players: MatchPlayer[] | null;
 }
 
 interface HeroConst {
@@ -225,8 +239,57 @@ async function ingestMatch(db: SupabaseClient, m: ProMatch): Promise<IngestStatu
   }));
   const { error: pbErr } = await db.from("picks_bans").insert(pbRows);
   if (pbErr) throw new Error(`insert picks_bans ${m.match_id}: ${pbErr.message}`);
-  console.log(`  match ${m.match_id}: ${pbRows.length} picks/bans.`);
+
+  // 6. match_players + posisi 1-5 (heuristik net-worth-first).
+  const mpCount = await ingestMatchPlayers(db, m.match_id, detail.players ?? []);
+  console.log(`  match ${m.match_id}: ${pbRows.length} picks/bans, ${mpCount} players.`);
   return "ingested";
+}
+
+async function ingestMatchPlayers(
+  db: SupabaseClient,
+  matchId: number,
+  players: MatchPlayer[]
+): Promise<number> {
+  const valid = players.filter((p) => p.hero_id && p.hero_id > 0);
+  if (valid.length === 0) return 0;
+
+  // Seed players dulu (FK match_players.account_id). Anonymous (account_id null) di-skip di sini.
+  const playerRows = valid
+    .filter((p) => p.account_id)
+    .map((p) => ({ account_id: p.account_id, name: p.name ?? p.personaname ?? null }));
+  if (playerRows.length > 0) {
+    const { error } = await db.from("players").upsert(playerRows, { onConflict: "account_id" });
+    if (error) throw new Error(`upsert players ${matchId}: ${error.message}`);
+  }
+
+  // Derive posisi per sisi.
+  const posBySlot = new Map<number, number>();
+  for (const side of [valid.filter((p) => p.isRadiant), valid.filter((p) => !p.isRadiant)]) {
+    const dp = derivePositions(
+      side.map((p) => ({ player_slot: p.player_slot, net_worth: p.net_worth, lane_role: p.lane_role }))
+    );
+    dp.forEach((v, k) => posBySlot.set(k, v));
+  }
+
+  const rows = valid.map((p) => ({
+    match_id: matchId,
+    account_id: p.account_id ?? null,
+    hero_id: p.hero_id,
+    is_radiant: p.isRadiant,
+    win: p.win === 1 ? true : p.win === 0 ? false : null,
+    lane_role: p.lane_role ?? null,
+    player_slot: p.player_slot,
+    net_worth: p.net_worth ?? null,
+    position: posBySlot.get(p.player_slot) ?? null,
+  }));
+
+  // Mirror tepat (delete+insert) biar re-ingest tak tinggalin baris basi.
+  const { error: delErr } = await db.from("match_players").delete().eq("match_id", matchId);
+  if (delErr) throw new Error(`delete match_players ${matchId}: ${delErr.message}`);
+  const { error: insErr } = await db.from("match_players").insert(rows);
+  if (insErr) throw new Error(`insert match_players ${matchId}: ${insErr.message}`);
+  return rows.length;
 }
 
 async function upsertTeam(
