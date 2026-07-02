@@ -9,6 +9,10 @@
     "ingest:local": "tsx --env-file=.env.local src/ingest.ts",
     "aggregate": "tsx src/aggregate.ts",
     "aggregate:local": "tsx --env-file=.env.local src/aggregate.ts",
+    "backfill": "tsx src/backfill.ts",
+    "backfill:local": "tsx --env-file=.env.local src/backfill.ts",
+    "sync-teams": "tsx src/sync-teams.ts",
+    "sync-teams:local": "tsx --env-file=.env.local src/sync-teams.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
