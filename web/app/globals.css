@@ -1,208 +1,369 @@
-/* DESIGN.md — retro Dell '96, black + sky. Flat, square, bordered. */
+/* DESIGN.md v2 — dark, modern, portrait-driven (STRATZ-style). Retro dibuang. */
 
 :root {
-  /* §1 palet tertutup */
-  --frame-ink: #000000;
-  --canvas: #ffffff;
-  --ink: #000000;
-  --sky: #9ab6c8;
-  --sky-deep: #5e7d8f;
-  --link: #0000ee;
-  --link-visited: #551a8b;
+  --bg: #0e1116;
+  --surface: #12171f;
+  --surface-2: #1a2029;
+  --border: #1f2530;
+  --border-strong: #2a3140;
+  --text: #e6e8ec;
+  --text-muted: #8b93a1;
+  --text-dim: #6b7280;
+  --accent: #4c9aff;
+  --win: #3fb950;
+  --loss: #f0603e;
+  --neutral: #7a828f;
 
-  /* §2 font OS-default (tanpa webfont) */
-  --font-display: "Arial Black", Helvetica, sans-serif;
-  --font-ui: Helvetica, Arial, sans-serif;
-  --font-body: "Times New Roman", Times, serif;
-
-  /* §3 spacing base 4px */
-  --container: 760px;
+  --font: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --container: 1160px;
 }
 
 * {
   margin: 0;
   padding: 0;
   box-sizing: border-box;
-  border-radius: 0; /* §5 square universal */
 }
 
 html,
 body {
-  background: var(--canvas);
-  color: var(--ink);
-  font-family: var(--font-body); /* §2 body Times 14 */
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font);
   font-size: 14px;
-  line-height: 1.4;
+  line-height: 1.5;
 }
 
 a {
-  color: var(--link);
+  color: var(--accent);
+  text-decoration: none;
+}
+a:hover {
   text-decoration: underline;
 }
-a:visited {
-  color: var(--link-visited);
-}
 
-/* §6 page-frame — border hitam 8px keliling viewport */
-.page-frame {
-  border: 8px solid var(--frame-ink);
-  min-height: 100vh;
+/* ---------- shell / nav ---------- */
+.app-nav {
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
 }
-
-/* §6 top-banner — strip hitam atas */
-.top-banner {
-  background: var(--frame-ink);
-  color: var(--canvas);
-  padding: 12px 16px;
+.app-nav .inner {
+  max-width: var(--container);
+  margin: 0 auto;
+  padding: 12px 20px;
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  gap: 20px;
 }
-.top-banner h2 {
-  font-family: var(--font-ui);
-  font-size: 16px;
+.app-nav .brand {
   font-weight: 700;
-  text-transform: uppercase;
+  color: var(--text);
 }
-.top-banner .slot {
-  font-family: var(--font-ui);
-  font-size: 12px;
-  font-weight: 700;
-  text-transform: uppercase;
+.app-nav a {
+  color: var(--text-muted);
+  font-size: 13px;
+  font-weight: 600;
 }
-
-/* §3 container — 760px center, gutter lebar */
+.app-nav a:hover {
+  color: var(--accent);
+  text-decoration: none;
+}
 .container {
   max-width: var(--container);
   margin: 0 auto;
-  padding: 32px 16px 40px;
+  padding: 20px;
+}
+.footer {
+  max-width: var(--container);
+  margin: 0 auto;
+  padding: 20px;
+  color: var(--text-dim);
+  font-size: 12px;
 }
 
-/* §6 section-eyebrow — blok sky, judul all-caps display 36/900 */
-.section-eyebrow {
-  background: var(--sky);
-  color: var(--ink);
-  padding: 24px 16px;
-  margin-bottom: 32px;
+/* ---------- generic ---------- */
+.h2 {
+  font-size: 16px;
+  font-weight: 600;
+  margin: 24px 0 12px;
 }
-.section-eyebrow h1 {
-  font-family: var(--font-display);
-  font-size: 36px;
-  font-weight: 900;
-  text-transform: uppercase;
-  line-height: 1.05;
-}
-.section-eyebrow .sub {
-  font-family: var(--font-body);
+.label {
   font-size: 12px;
-  margin-top: 6px;
-}
-
-/* §6 data-table — header sky, body canvas, hairline hitam, no zebra */
-.data-table {
-  width: 100%;
-  border-collapse: collapse;
-  border: 1px solid var(--frame-ink);
-}
-.data-table thead th {
-  background: var(--sky);
-  color: var(--ink);
-  font-family: var(--font-ui);
-  font-size: 12px;
-  font-weight: 700;
+  font-weight: 600;
   text-transform: uppercase;
-  text-align: left;
-  padding: 6px 10px;
-  border-bottom: 1px solid var(--frame-ink);
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
 }
-.data-table td {
-  font-family: var(--font-body);
-  font-size: 14px;
-  padding: 6px 10px;
-  border-bottom: 1px solid var(--frame-ink);
-  vertical-align: top;
+.muted {
+  color: var(--text-muted);
 }
-.data-table tbody tr:last-child td {
-  border-bottom: none;
+.dim {
+  color: var(--text-dim);
 }
-/* §6 angka rata kanan, nama rata kiri */
 .num {
   text-align: right;
   font-variant-numeric: tabular-nums;
 }
-.muted {
-  color: var(--sky-deep);
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 16px;
 }
 
-/* FR-4 draft: dua kolom Radiant | Dire, stack di mobile */
-.draft-grid {
+/* winrate warna (winrate SAJA) */
+.wr-good {
+  color: var(--win);
+}
+.wr-bad {
+  color: var(--loss);
+}
+.wr-mid {
+  color: var(--neutral);
+}
+
+/* ---------- team-header ---------- */
+.team-header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 16px 20px;
+}
+.team-logo,
+.team-logo-fallback {
+  width: 56px;
+  height: 56px;
+  border-radius: 8px;
+  flex: none;
+  object-fit: contain;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+}
+.team-logo-fallback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 20px;
+  color: var(--text-muted);
+}
+.team-title {
+  font-size: 22px;
+  font-weight: 700;
+}
+.team-meta {
+  color: var(--text-muted);
+  font-size: 13px;
+  margin-top: 2px;
+}
+.team-header .spacer {
+  flex: 1;
+}
+.btn-accent {
+  background: var(--accent);
+  color: #0b1220;
+  border: none;
+  border-radius: 8px;
+  padding: 8px 14px;
+  font-family: var(--font);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.btn-accent:hover {
+  filter: brightness(1.1);
+}
+
+/* chips turnamen */
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+.chip {
+  display: inline-block;
+  padding: 4px 10px;
+  border-radius: 12px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  font-size: 12px;
+}
+.chip:hover {
+  color: var(--accent);
+  border-color: var(--border-strong);
+  text-decoration: none;
+}
+
+/* ---------- position-pool (komponen bintang) ---------- */
+.pos-pool {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.pos-row {
+  display: grid;
+  grid-template-columns: 140px 1fr;
+  gap: 12px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px;
+}
+.pos-head .pos-tag {
+  color: var(--accent);
+  font-weight: 600;
+  font-size: 13px;
+}
+.pos-head .pos-player {
+  font-size: 13px;
+  margin-top: 2px;
+}
+.pos-head .pos-sub {
+  color: var(--text-dim);
+  font-size: 11px;
+  margin-top: 2px;
+}
+.pool {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.pool-empty {
+  color: var(--text-dim);
+  font-size: 12px;
+  align-self: center;
+}
+
+/* portrait tile */
+.portrait {
+  display: block;
+  width: 46px;
+}
+.portrait img {
+  width: 46px;
+  height: 26px;
+  object-fit: cover;
+  border-radius: 4px;
+  display: block;
+  border-bottom: 3px solid var(--neutral);
+}
+.portrait.win img {
+  border-bottom-color: var(--win);
+}
+.portrait.loss img {
+  border-bottom-color: var(--loss);
+}
+.portrait.mid img {
+  border-bottom-color: var(--neutral);
+}
+.portrait .g {
+  display: block;
+  text-align: center;
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+.portrait:hover {
+  text-decoration: none;
+}
+
+/* ---------- data-table (sekunder, dark) ---------- */
+.data-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 16px;
 }
-@media (max-width: 768px) {
-  .draft-grid {
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+.data-table thead th {
+  background: var(--surface-2);
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  text-align: left;
+  padding: 8px 12px;
+}
+.data-table td {
+  padding: 8px 12px;
+  border-top: 1px solid var(--border);
+  vertical-align: middle;
+}
+.hero-cell {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.hero-mini {
+  width: 34px;
+  height: 20px;
+  object-fit: cover;
+  border-radius: 3px;
+  flex: none;
+}
+
+/* ---------- side winrate chart (SVG/CSS bar, no dep) ---------- */
+.bar-row {
+  display: grid;
+  grid-template-columns: 60px 1fr 90px;
+  align-items: center;
+  gap: 10px;
+  margin: 8px 0;
+}
+.bar-track {
+  background: var(--surface-2);
+  border-radius: 6px;
+  height: 14px;
+  overflow: hidden;
+}
+.bar-fill {
+  height: 100%;
+  background: var(--accent);
+}
+
+@media (max-width: 800px) {
+  .pos-row {
+    grid-template-columns: 1fr;
+  }
+  .data-grid {
     grid-template-columns: 1fr;
   }
 }
 
-/* FR-4 hero portrait — persegi + bevel keras (DESIGN.md §4 lvl3). Jangan rounded. */
-.hero-img {
-  display: block;
-  border: 1px solid var(--frame-ink);
-  filter: drop-shadow(2px 2px 0 #000);
-  border-radius: 0;
-}
-
-/* §6 button primary — fill hitam, teks putih, all-caps, radius 0 */
-.btn-primary {
-  font-family: var(--font-ui);
-  font-size: 12px;
-  font-weight: 700;
-  text-transform: uppercase;
-  background: var(--frame-ink);
-  color: var(--canvas);
-  border: 1px solid var(--frame-ink);
-  padding: 4px 10px;
-  cursor: pointer;
-  border-radius: 0;
-}
-
-/* Export PDF = print browser. Sembunyiin chrome, bersihin buat kertas + coret manual. */
+/* Export PDF = print browser. Light + hemat tinta, sembunyiin nav/footer/tombol. */
 @media print {
-  .page-frame {
-    border: none;
+  html,
+  body {
+    background: #fff;
+    color: #000;
   }
-  .top-banner,
-  .footer-band,
+  .app-nav,
+  .footer,
   .no-print {
     display: none !important;
   }
+  .team-header,
+  .pos-row,
+  .card,
+  .data-table {
+    border-color: #ccc;
+    background: #fff;
+  }
   a {
     color: #000;
-    text-decoration: none;
   }
-  .hero-img {
-    filter: none; /* bevel drop-shadow boros tinta */
-  }
-}
-
-/* §6 footer-band */
-.footer-band {
-  border-top: 1px solid var(--frame-ink);
-  padding: 12px 16px;
-  font-size: 11px;
-  font-family: var(--font-body);
-}
-
-/* §7 responsif */
-@media (max-width: 768px) {
-  .page-frame {
-    border-width: 4px;
-  }
-}
-@media (max-width: 480px) {
-  .page-frame {
-    border-width: 2px;
+  .portrait img {
+    border-bottom-width: 2px;
   }
 }
