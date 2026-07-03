@@ -4,6 +4,7 @@ import PrintButton from "./PrintButton";
 import Filters from "./Filters";
 import PoolAccordion from "./PoolAccordion";
 import RoleDuos from "./RoleDuos";
+import CondPickBan from "./CondPickBan";
 
 // FR-2 v2 (dark modern) — team analysis: header + filter(patch/tournament) + position-pool + tabel/chart.
 // chunk1: semua data di-scope by patch (mandatory) + tournament (single). Query on-the-fly dari raw
@@ -102,6 +103,20 @@ export interface Duo {
 export interface RoleDuoGroup {
   label: string;
   duos: Duo[];
+}
+// #3 conditional pick → ban
+export interface CondBan {
+  hero_id: number;
+  name: string;
+  img: string | null;
+  count: number;
+}
+export interface CondPick {
+  hero_id: number;
+  name: string;
+  img: string | null;
+  pickCount: number;
+  cobans: CondBan[];
 }
 
 function heroSrc(img: string | null | undefined): string | null {
@@ -431,6 +446,46 @@ export default async function TeamPage({
     duoGroup("Mid · 2+5", 2, 5),
   ];
 
+  // #3 conditional pick→ban: pas tim pick X, hero apa yang mereka ban di match sama.
+  const picksByMatch = new Map<number, PbRow[]>();
+  const bansByMatch = new Map<number, PbRow[]>();
+  for (const r of teamPb) {
+    const m = r.is_pick ? picksByMatch : bansByMatch;
+    const arr = m.get(r.match_id) ?? [];
+    arr.push(r);
+    m.set(r.match_id, arr);
+  }
+  const condMap = new Map<
+    number,
+    { name: string; img: string | null; pickCount: number; banTally: Map<number, CondBan> }
+  >();
+  for (const [mid, picks] of picksByMatch) {
+    const bans = bansByMatch.get(mid) ?? [];
+    for (const p of picks) {
+      const c =
+        condMap.get(p.hero_id) ??
+        { name: p.hero?.localized_name ?? String(p.hero_id), img: p.hero?.img ?? null, pickCount: 0, banTally: new Map() };
+      c.pickCount++;
+      for (const b of bans) {
+        const t =
+          c.banTally.get(b.hero_id) ??
+          { hero_id: b.hero_id, name: b.hero?.localized_name ?? String(b.hero_id), img: b.hero?.img ?? null, count: 0 };
+        t.count++;
+        c.banTally.set(b.hero_id, t);
+      }
+      condMap.set(p.hero_id, c);
+    }
+  }
+  const condPicks: CondPick[] = [...condMap.entries()]
+    .map(([hero_id, v]) => ({
+      hero_id,
+      name: v.name,
+      img: v.img,
+      pickCount: v.pickCount,
+      cobans: [...v.banTally.values()].sort((a, b) => b.count - a.count),
+    }))
+    .sort((a, b) => b.pickCount - a.pickCount);
+
   // most picked / banned (on-the-fly dari picks_bans sisi tim)
   const pickMap = new Map<number, { name: string; img: string | null; picks: number; wins: number }>();
   const banMap = new Map<number, { name: string; img: string | null; bans: number }>();
@@ -496,6 +551,13 @@ export default async function TeamPage({
       {/* #2 role-duo pairing (GAME winrate) */}
       <div className="h2">Role-duo combinations</div>
       <RoleDuos groups={roleDuoGroups} />
+
+      {/* #3 conditional pick → ban */}
+      <div className="h2">Conditional pick → ban</div>
+      <CondPickBan picks={condPicks} />
+      <div className="dim" style={{ fontSize: 12, marginTop: 6 }}>
+        Pilih hero → hero yang tim ini ban di match mereka pick hero itu (scope filter ini).
+      </div>
 
       {/* duo-lane win-lane% (STRATZ) */}
       <div className="h2">Lane winrate (STRATZ)</div>

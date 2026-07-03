@@ -595,6 +595,92 @@ a:hover {
   margin-top: 4px;
 }
 
+/* #3 conditional pick → ban (two-pane) */
+.cpb {
+  display: grid;
+  grid-template-columns: 240px 1fr;
+  gap: 14px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px;
+}
+.cpb-list {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  max-height: 340px;
+  overflow-y: auto;
+  border-right: 1px solid var(--border);
+  padding-right: 10px;
+}
+.cpb-pick {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 6px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: none;
+  color: var(--text);
+  font-family: var(--font);
+  font-size: 12px;
+  cursor: pointer;
+  text-align: left;
+}
+.cpb-pick:hover {
+  background: var(--surface-2);
+}
+.cpb-pick.active {
+  background: var(--surface-2);
+  border-color: var(--accent);
+}
+.cpb-pick-name {
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.cpb-pick-n {
+  font-size: 11px;
+}
+.cpb-img {
+  object-fit: cover;
+  border-radius: 3px;
+  display: block;
+}
+.cpb-fallback {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 9px;
+  color: var(--text-muted);
+  background: var(--surface-2);
+  border-radius: 3px;
+}
+.cpb-panel-head {
+  font-size: 13px;
+  margin-bottom: 10px;
+}
+.cpb-bans {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.cpb-ban {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.cpb-ban-name {
+  flex: 1;
+  font-size: 12px;
+}
+.cpb-ban-count {
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
 /* ---------- data-table (sekunder, dark) ---------- */
 .data-grid {
   display: grid;
