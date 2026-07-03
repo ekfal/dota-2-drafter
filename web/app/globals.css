@@ -285,27 +285,47 @@ a:hover {
   margin-bottom: 14px;
 }
 
-/* portrait tile */
+/* portrait tile (button, klik = drill-down) */
 .portrait {
   display: block;
   width: 46px;
+  padding: 0;
+  border: none;
+  background: none;
+  font-family: var(--font);
+  cursor: pointer;
 }
-.portrait img {
+.portrait .thumb {
+  position: relative;
+  display: block;
+  width: 46px;
+  height: 26px;
+  border-radius: 4px;
+  overflow: hidden;
+  border-bottom: 3px solid var(--neutral); /* warna winrate di-set inline */
+}
+.portrait .thumb img {
   width: 46px;
   height: 26px;
   object-fit: cover;
-  border-radius: 4px;
   display: block;
-  border-bottom: 3px solid var(--neutral);
 }
-.portrait.win img {
-  border-bottom-color: var(--win);
+.portrait .thumb-fallback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  font-size: 10px;
+  color: var(--text-muted);
+  background: var(--surface-2);
 }
-.portrait.loss img {
-  border-bottom-color: var(--loss);
-}
-.portrait.mid img {
-  border-bottom-color: var(--neutral);
+/* BAGIAN A: tint winrate kontinu di atas gambar (semi-transparan, hero tetap kebaca) */
+.portrait .tint {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  mix-blend-mode: multiply;
 }
 .portrait .g {
   display: block;
@@ -315,8 +335,264 @@ a:hover {
   color: var(--text-muted);
   margin-top: 2px;
 }
-.portrait:hover {
-  text-decoration: none;
+.portrait:hover .thumb {
+  outline: 1px solid var(--border-strong);
+}
+.portrait.open .thumb {
+  outline: 2px solid var(--accent);
+}
+
+/* ---------- hero drill-down (accordion) ---------- */
+.pos-block {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.drill {
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.drill-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--accent);
+}
+.drill-match {
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--neutral);
+  border-radius: 6px;
+  padding: 8px 10px;
+  background: var(--bg);
+}
+.drill-match.won {
+  border-left-color: var(--win);
+}
+.drill-match.lost {
+  border-left-color: var(--loss);
+}
+.dm-main {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.dm-result {
+  font-weight: 700;
+  width: 16px;
+  text-align: center;
+}
+.dm-side {
+  display: flex;
+  gap: 3px;
+  flex-wrap: wrap;
+}
+.dm-side.right {
+  justify-content: flex-end;
+}
+.dm-mid {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 72px;
+  font-size: 11px;
+}
+.dm-mid .dm-mid-date {
+  font-size: 11px;
+}
+.dm-opp {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-left: auto;
+}
+.mini {
+  display: block;
+  line-height: 0;
+}
+.mini img {
+  width: 38px;
+  height: 22px;
+  object-fit: cover;
+  border-radius: 3px;
+  display: block;
+}
+.mini.muted img {
+  filter: grayscale(1) brightness(0.6);
+  opacity: 0.6;
+}
+.mini-fallback {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 22px;
+  font-size: 9px;
+  color: var(--text-dim);
+  background: var(--surface-2);
+  border-radius: 3px;
+}
+.dm-bans-wrap {
+  margin-top: 8px;
+}
+.ban-toggle {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  border-radius: 6px;
+  padding: 3px 8px;
+  font-family: var(--font);
+  font-size: 11px;
+  cursor: pointer;
+}
+.ban-toggle:hover {
+  color: var(--text);
+  border-color: var(--border-strong);
+}
+.dm-bans {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: wrap;
+  margin-top: 6px;
+}
+.ban-label {
+  font-size: 10px;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin: 0 2px 0 4px;
+}
+
+/* lane outcome chip (STRATZ) di drill match */
+.lane-chip {
+  font-size: 10px;
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+  white-space: nowrap;
+}
+.lane-chip.lane-won {
+  color: var(--win);
+  border-color: color-mix(in srgb, var(--win) 45%, var(--border));
+}
+.lane-chip.lane-lost {
+  color: var(--loss);
+  border-color: color-mix(in srgb, var(--loss) 45%, var(--border));
+}
+.lane-chip.lane-tie {
+  color: var(--text-muted);
+}
+.lane-chip.lane-na {
+  color: var(--text-dim);
+}
+.dm-links {
+  display: flex;
+  gap: 8px;
+  font-size: 11px;
+}
+.dm-date {
+  font-size: 10px;
+}
+
+/* lane winrate section */
+.lane-wr {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.lane-note {
+  font-size: 11px;
+  margin-top: 2px;
+}
+
+/* #2 role-duo pairing */
+.duo-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.duo-group {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.duo-group-head {
+  color: var(--accent);
+  font-weight: 600;
+  font-size: 13px;
+  margin-bottom: 2px;
+}
+.duo-empty {
+  font-size: 12px;
+}
+.duo-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 4px 0;
+}
+.duo-pics {
+  display: flex;
+  gap: 3px;
+  flex-shrink: 0;
+}
+.duo-thumb {
+  position: relative;
+  display: block;
+  width: 40px;
+  height: 23px;
+  border-radius: 4px;
+  overflow: hidden;
+  border-bottom: 3px solid var(--neutral);
+}
+.duo-thumb img {
+  width: 40px;
+  height: 23px;
+  object-fit: cover;
+  display: block;
+}
+.duo-thumb-fallback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  font-size: 9px;
+  color: var(--text-muted);
+  background: var(--surface-2);
+}
+.duo-tint {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  mix-blend-mode: multiply;
+}
+.duo-body {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.duo-names {
+  font-size: 12px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.duo-stat {
+  font-size: 12px;
+}
+.duo-more {
+  align-self: flex-start;
+  margin-top: 4px;
 }
 
 /* ---------- data-table (sekunder, dark) ---------- */

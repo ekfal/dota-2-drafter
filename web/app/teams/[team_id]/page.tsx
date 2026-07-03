@@ -2,6 +2,8 @@ import Link from "next/link";
 import { getServerSupabase } from "@/lib/supabase";
 import PrintButton from "./PrintButton";
 import Filters from "./Filters";
+import PoolAccordion from "./PoolAccordion";
+import RoleDuos from "./RoleDuos";
 
 // FR-2 v2 (dark modern) — team analysis: header + filter(patch/tournament) + position-pool + tabel/chart.
 // chunk1: semua data di-scope by patch (mandatory) + tournament (single). Query on-the-fly dari raw
@@ -19,8 +21,11 @@ interface MetaRow {
   league_id: number | null;
   patch_id: number | null;
   start_time: number | null;
+  duration: number | null;
   league: { name: string | null } | null;
   patch: { id: number; name: string | null; start_time: number | null } | null;
+  radiant: { name: string | null } | null;
+  dire: { name: string | null } | null;
 }
 interface MpRow {
   match_id: number;
@@ -29,15 +34,74 @@ interface MpRow {
   is_radiant: boolean;
   position: number | null;
   win: boolean | null;
+  lane_result: number | null; // STRATZ: 1 won, 0 tie, -1 lost, null roam/no-lane
   player: { name: string | null } | null;
   hero: { localized_name: string | null; img: string | null } | null;
 }
 interface PbRow {
   match_id: number;
+  ord: number;
   is_pick: boolean;
   hero_id: number;
   team: number; // 0 = radiant, 1 = dire
   hero: { localized_name: string | null; img: string | null } | null;
+}
+// drill-down (dikirim ke client accordion)
+export interface DrillPick {
+  name: string;
+  img: string | null;
+}
+export interface DrillMatch {
+  matchId: number;
+  start_time: number | null;
+  duration: number | null;
+  win: boolean | null;
+  laneResult: number | null; // lane_result hero yang di-drill di match ini (1/0/-1/null)
+  oppId: number | null;
+  oppName: string;
+  teamPicks: DrillPick[];
+  oppPicks: DrillPick[];
+  teamBans: DrillPick[];
+  oppBans: DrillPick[];
+}
+export interface PoolHero {
+  hero_id: number;
+  name: string;
+  img: string | null;
+  games: number;
+  wins: number;
+  matches: DrillMatch[];
+}
+export interface PosData {
+  pos: number;
+  label: string;
+  playerId: number | null;
+  playerName: string;
+  pool: PoolHero[];
+  otherPlayers: number;
+}
+// duo-lane win-lane% (STRATZ lane_result, rep core: safe=pos1, mid=pos2, off=pos3)
+interface LaneAgg {
+  label: string;
+  won: number;
+  tie: number;
+  lost: number;
+}
+// #2 role-duo pairing (GAME winrate)
+interface DuoHero {
+  hero_id: number;
+  name: string;
+  img: string | null;
+}
+export interface Duo {
+  a: DuoHero;
+  b: DuoHero;
+  games: number;
+  wins: number;
+}
+export interface RoleDuoGroup {
+  label: string;
+  duos: Duo[];
 }
 
 function heroSrc(img: string | null | undefined): string | null {
@@ -56,38 +120,6 @@ function wrPct(wins: number, games: number): number {
 function wrColor(wins: number, games: number): string {
   const c = wrClass(wins, games);
   return c === "win" ? "wr-good" : c === "loss" ? "wr-bad" : "wr-mid";
-}
-
-function Portrait({
-  heroId,
-  name,
-  img,
-  games,
-  wins,
-}: {
-  heroId: number;
-  name: string;
-  img: string | null;
-  games: number;
-  wins: number;
-}) {
-  const src = heroSrc(img);
-  const losses = games - wins;
-  return (
-    <Link
-      href={`/heroes/${heroId}`}
-      className={`portrait ${wrClass(wins, games)}`}
-      title={`${name} — ${wins}-${losses} (${wrPct(wins, games)}% WR)`}
-    >
-      {src ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img src={src} alt={name} width={46} height={26} />
-      ) : null}
-      <span className="g">
-        {wins}-{losses} ({wrPct(wins, games)}%)
-      </span>
-    </Link>
-  );
 }
 
 export default async function TeamPage({
@@ -118,9 +150,11 @@ export default async function TeamPage({
     supabase
       .from("matches")
       .select(
-        `match_id, radiant_team_id, dire_team_id, radiant_win, league_id, patch_id, start_time,
+        `match_id, radiant_team_id, dire_team_id, radiant_win, league_id, patch_id, start_time, duration,
          league:leagues!matches_league_id_fkey(name),
-         patch:patches!matches_patch_id_fkey(id, name, start_time)`
+         patch:patches!matches_patch_id_fkey(id, name, start_time),
+         radiant:teams!matches_radiant_team_id_fkey(name),
+         dire:teams!matches_dire_team_id_fkey(name)`
       )
       .or(`radiant_team_id.eq.${id},dire_team_id.eq.${id}`)
       .order("start_time", { ascending: false })
@@ -217,12 +251,13 @@ export default async function TeamPage({
   // match_players + picks_bans untuk scope terpilih
   let teamMp: MpRow[] = [];
   let teamPb: PbRow[] = [];
+  let allPb: PbRow[] = [];
   if (matchIds.length > 0) {
     const [mpRes, pbRes] = await Promise.all([
       supabase
         .from("match_players")
         .select(
-          `match_id, account_id, hero_id, is_radiant, position, win,
+          `match_id, account_id, hero_id, is_radiant, position, win, lane_result,
            player:players!match_players_account_id_fkey(name),
            hero:heroes!match_players_hero_id_fkey(localized_name, img)`
         )
@@ -231,19 +266,68 @@ export default async function TeamPage({
       supabase
         .from("picks_bans")
         .select(
-          `match_id, is_pick, hero_id, team,
+          `match_id, ord, is_pick, hero_id, team,
            hero:heroes!picks_bans_hero_id_fkey(localized_name, img)`
         )
         .in("match_id", matchIds)
         .returns<PbRow[]>(),
     ]);
     teamMp = (mpRes.data ?? []).filter((r) => side.get(r.match_id) === r.is_radiant);
+    allPb = pbRes.data ?? [];
     // hanya pick/ban milik sisi tim: (team===0)===isRadiant
-    teamPb = (pbRes.data ?? []).filter((r) => side.get(r.match_id) === (r.team === 0));
+    teamPb = allPb.filter((r) => side.get(r.match_id) === (r.team === 0));
   }
 
-  // position-pool: per pos → dominant player + hero pool (games desc)
-  const positions = [1, 2, 3, 4, 5].map((pos) => {
+  // picks_bans per match (buat drill-down: butuh kedua sisi)
+  const pbByMatch = new Map<number, PbRow[]>();
+  for (const r of allPb) {
+    const arr = pbByMatch.get(r.match_id) ?? [];
+    arr.push(r);
+    pbByMatch.set(r.match_id, arr);
+  }
+  const metaById = new Map(filtered.map((m) => [m.match_id, m]));
+  const startTimeById = new Map(filtered.map((m) => [m.match_id, m.start_time ?? 0]));
+  // lane_result per (match, hero) tim → dipakai di drill indicator
+  const laneByMatchHero = new Map<string, number | null>();
+  for (const r of teamMp) laneByMatchHero.set(`${r.match_id}:${r.hero_id}`, r.lane_result);
+
+  function toPick(r: PbRow): DrillPick {
+    return { name: r.hero?.localized_name ?? String(r.hero_id), img: r.hero?.img ?? null };
+  }
+  // matches (recent 20) di mana tim pick hero H di posisi P — full draft kedua sisi.
+  function buildDrill(heroId: number, matchIdsForHero: number[]): DrillMatch[] {
+    return matchIdsForHero
+      .slice()
+      .sort((a, b) => (startTimeById.get(b) ?? 0) - (startTimeById.get(a) ?? 0))
+      .slice(0, 20)
+      .map((mid) => {
+        const meta = metaById.get(mid);
+        const isRad = side.get(mid) === true;
+        const pbs = (pbByMatch.get(mid) ?? []).slice().sort((a, b) => a.ord - b.ord);
+        const teamPickRows = pbs.filter((p) => p.is_pick && (p.team === 0) === isRad);
+        const oppPickRows = pbs.filter((p) => p.is_pick && (p.team === 0) !== isRad);
+        const teamBanRows = pbs.filter((p) => !p.is_pick && (p.team === 0) === isRad);
+        const oppBanRows = pbs.filter((p) => !p.is_pick && (p.team === 0) !== isRad);
+        return {
+          matchId: mid,
+          start_time: meta?.start_time ?? null,
+          duration: meta?.duration ?? null,
+          win: won.has(mid) ? won.get(mid)! : null,
+          laneResult: laneByMatchHero.get(`${mid}:${heroId}`) ?? null,
+          oppId: (isRad ? meta?.dire_team_id : meta?.radiant_team_id) ?? null,
+          oppName: (isRad ? meta?.dire?.name : meta?.radiant?.name) ?? "Unknown",
+          teamPicks: teamPickRows.map(toPick),
+          oppPicks: oppPickRows.map(toPick),
+          teamBans: teamBanRows.map(toPick),
+          oppBans: oppBanRows.map(toPick),
+        };
+      });
+  }
+
+  const POS_LABEL = ["", "Pos 1 · Carry", "Pos 2 · Mid", "Pos 3 · Off", "Pos 4 · Soft sup", "Pos 5 · Hard sup"];
+
+  // position-pool: per pos → dominant player + hero pool (games desc) + drill-down per hero
+  const positions: PosData[] = [1, 2, 3, 4, 5].map((pos) => {
     const rows = teamMp.filter((r) => r.position === pos);
     const byPlayer = new Map<number, { name: string; games: number }>();
     for (const r of rows) {
@@ -260,25 +344,92 @@ export default async function TeamPage({
     for (const [k, v] of byPlayer) if (v.games > domGames) ((domGames = v.games), (domId = k), (domName = v.name));
 
     const poolRows = rows.filter((r) => (r.account_id ?? -1) === domId);
-    const heroMap = new Map<number, { name: string; img: string | null; games: number; wins: number }>();
+    const heroMap = new Map<
+      number,
+      { name: string; img: string | null; games: number; wins: number; matchIds: number[] }
+    >();
     for (const r of poolRows) {
       const h =
         heroMap.get(r.hero_id) ??
-        { name: r.hero?.localized_name ?? String(r.hero_id), img: r.hero?.img ?? null, games: 0, wins: 0 };
+        { name: r.hero?.localized_name ?? String(r.hero_id), img: r.hero?.img ?? null, games: 0, wins: 0, matchIds: [] };
       h.games++;
       if (r.win) h.wins++;
+      h.matchIds.push(r.match_id);
       heroMap.set(r.hero_id, h);
     }
-    const pool = [...heroMap.entries()].map(([hero_id, v]) => ({ hero_id, ...v })).sort((a, b) => b.games - a.games);
+    const pool: PoolHero[] = [...heroMap.entries()]
+      .map(([hero_id, v]) => ({
+        hero_id,
+        name: v.name,
+        img: v.img,
+        games: v.games,
+        wins: v.wins,
+        matches: buildDrill(hero_id, v.matchIds),
+      }))
+      .sort((a, b) => b.games - a.games);
 
     return {
       pos,
+      label: POS_LABEL[pos]!,
       playerId: domId > 0 ? domId : null,
       playerName: domName,
       pool,
       otherPlayers: Math.max(0, byPlayer.size - 1),
     };
   });
+
+  // duo-lane win-lane% (STRATZ lane_result) — rep core: safe=pos1, mid=pos2, off=pos3. null di-skip.
+  function laneAggFor(pos: number, label: string): LaneAgg {
+    const a: LaneAgg = { label, won: 0, tie: 0, lost: 0 };
+    for (const r of teamMp) {
+      if (r.position !== pos || r.lane_result == null) continue;
+      if (r.lane_result === 1) a.won++;
+      else if (r.lane_result === 0) a.tie++;
+      else if (r.lane_result === -1) a.lost++;
+    }
+    return a;
+  }
+  const laneAggs: LaneAgg[] = [
+    laneAggFor(1, "Safelane"),
+    laneAggFor(2, "Mid"),
+    laneAggFor(3, "Offlane"),
+  ];
+
+  // #2 role-duo: per match position→hero (tim), lalu pair hero per role-duo. GAME winrate.
+  const posHeroByMatch = new Map<number, Map<number, DuoHero>>();
+  for (const r of teamMp) {
+    if (r.position == null) continue;
+    const pm = posHeroByMatch.get(r.match_id) ?? new Map<number, DuoHero>();
+    pm.set(r.position, {
+      hero_id: r.hero_id,
+      name: r.hero?.localized_name ?? String(r.hero_id),
+      img: r.hero?.img ?? null,
+    });
+    posHeroByMatch.set(r.match_id, pm);
+  }
+  function duoGroup(label: string, px: number, py: number): RoleDuoGroup {
+    const map = new Map<string, Duo>();
+    for (const [mid, pm] of posHeroByMatch) {
+      const a = pm.get(px);
+      const b = pm.get(py);
+      if (!a || !b) continue;
+      const key = `${a.hero_id}:${b.hero_id}`;
+      const d = map.get(key) ?? { a, b, games: 0, wins: 0 };
+      d.games++;
+      if (won.get(mid)) d.wins++;
+      map.set(key, d);
+    }
+    return {
+      label,
+      duos: [...map.values()].sort((x, y) => y.games - x.games || y.wins - x.wins),
+    };
+  }
+  const roleDuoGroups: RoleDuoGroup[] = [
+    duoGroup("Safelane · 1+5", 1, 5),
+    duoGroup("Offlane · 3+4", 3, 4),
+    duoGroup("Mid · 2+4", 2, 4),
+    duoGroup("Mid · 2+5", 2, 5),
+  ];
 
   // most picked / banned (on-the-fly dari picks_bans sisi tim)
   const pickMap = new Map<number, { name: string; img: string | null; picks: number; wins: number }>();
@@ -302,7 +453,6 @@ export default async function TeamPage({
   const pickRows = [...pickMap.values()].sort((a, b) => b.picks - a.picks).slice(0, 15);
   const banRows = [...banMap.values()].sort((a, b) => b.bans - a.bans).slice(0, 15);
 
-  const POS_LABEL = ["", "Pos 1 · Carry", "Pos 2 · Mid", "Pos 3 · Off", "Pos 4 · Soft sup", "Pos 5 · Hard sup"];
   const initials = teamName.slice(0, 2).toUpperCase();
   const logo = team?.logo_url;
   const scopeLabel = selectedLeague !== null ? leagueMap.get(selectedLeague) : "All tournaments (this patch)";
@@ -336,29 +486,27 @@ export default async function TeamPage({
         selectedLeague={selectedLeague}
       />
 
-      {/* position-pool (komponen bintang) */}
+      {/* position-pool + hero drill-down (client accordion) */}
       <div className="h2">Hero pool by position</div>
-      <div className="pos-pool">
-        {positions.map((row) => (
-          <div key={row.pos} className="pos-row">
-            <div className="pos-head">
-              <div className="pos-tag">{POS_LABEL[row.pos]}</div>
-              <div className="pos-player">
-                {row.playerId ? <Link href={`/players/${row.playerId}`}>{row.playerName}</Link> : row.playerName}
-              </div>
-              {row.otherPlayers > 0 && <div className="pos-sub">+{row.otherPlayers} other player(s)</div>}
-            </div>
-            <div className="pool">
-              {row.pool.length === 0 ? (
-                <span className="pool-empty">No data</span>
-              ) : (
-                row.pool.map((h) => (
-                  <Portrait key={h.hero_id} heroId={h.hero_id} name={h.name} img={h.img} games={h.games} wins={h.wins} />
-                ))
-              )}
-            </div>
-          </div>
+      <PoolAccordion positions={positions} />
+      <div className="dim" style={{ fontSize: 12, marginTop: 6 }}>
+        Klik portrait hero → lihat match tim ini pick hero itu (scope filter ini).
+      </div>
+
+      {/* #2 role-duo pairing (GAME winrate) */}
+      <div className="h2">Role-duo combinations</div>
+      <RoleDuos groups={roleDuoGroups} />
+
+      {/* duo-lane win-lane% (STRATZ) */}
+      <div className="h2">Lane winrate (STRATZ)</div>
+      <div className="card lane-wr">
+        {laneAggs.map((l) => (
+          <LaneBar key={l.label} agg={l} />
         ))}
+        <div className="dim lane-note">
+          Win-lane @ ~10min per <a href="https://stratz.com" target="_blank" rel="noreferrer">STRATZ</a>. % = won/(won+lost),
+          tie di-exclude (W-T-L tetap ditampilin). Rep core: Safelane=pos1, Mid=pos2, Offlane=pos3. Roamer/no-lane di-skip.
+        </div>
       </div>
 
       {/* sekunder: tabel + chart */}
@@ -475,6 +623,29 @@ function SideBar({ label, wins, games }: { label: string; wins: number; games: n
       </span>
       <span className={`num ${wrColor(wins, games)}`}>
         {pct}% ({games})
+      </span>
+    </div>
+  );
+}
+
+function LaneBar({ agg }: { agg: LaneAgg }) {
+  const decided = agg.won + agg.lost; // tie EXCLUDE dari % (tie != kalah)
+  const total = decided + agg.tie; // total lane ada outcome (buat sample flag)
+  const pct = wrPct(agg.won, decided);
+  const low = decided > 0 && decided < 3; // sample kecil → redam
+  return (
+    <div className="bar-row" style={low ? { opacity: 0.6 } : undefined}>
+      <span className="label">{agg.label}</span>
+      <span className="bar-track">
+        <span className="bar-fill" style={{ width: `${pct}%` }} />
+      </span>
+      <span className={`num ${decided === 0 ? "dim" : wrColor(agg.won, decided)}`}>
+        {decided === 0 ? "—" : `${pct}%`}{" "}
+        <span className="dim">
+          ({agg.won}-{agg.tie}-{agg.lost}
+          {total > 0 ? ` · n${total}` : ""}
+          {low ? " · low" : ""})
+        </span>
       </span>
     </div>
   );
