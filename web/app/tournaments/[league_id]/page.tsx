@@ -16,6 +16,20 @@ interface StatRow {
   contest: number;
   hero: HeroRef | null;
 }
+interface MatchRow {
+  match_id: number;
+  radiant_team_id: number | null;
+  dire_team_id: number | null;
+  radiant_win: boolean | null;
+  start_time: number | null;
+  radiant: { name: string | null } | null;
+  dire: { name: string | null } | null;
+}
+
+function fmtDate(epoch: number | null): string {
+  if (!epoch) return "—";
+  return new Date(epoch * 1000).toISOString().slice(0, 10);
+}
 
 type SortKey = "pick" | "ban" | "contest";
 const SORT_COL: Record<SortKey, "picks" | "bans" | "contest"> = {
@@ -47,6 +61,7 @@ export default async function TournamentDetailPage({
   let name = `League ${params.league_id}`;
   let totalMatches = 0;
   let rows: StatRow[] = [];
+  let matchList: MatchRow[] = [];
   let error: { message: string } | null = null;
 
   if (!Number.isFinite(id)) {
@@ -54,7 +69,7 @@ export default async function TournamentDetailPage({
   } else {
     try {
       const supabase = getServerSupabase();
-      const [lRes, mRes, sRes] = await Promise.all([
+      const [lRes, mRes, sRes, mlRes] = await Promise.all([
         supabase.from("leagues").select("name").eq("league_id", id).maybeSingle<{ name: string | null }>(),
         supabase.from("matches").select("*", { count: "exact", head: true }).eq("league_id", id),
         supabase
@@ -67,11 +82,23 @@ export default async function TournamentDetailPage({
           .order(SORT_COL[sort], { ascending: false })
           .limit(60)
           .returns<StatRow[]>(),
+        supabase
+          .from("matches")
+          .select(
+            `match_id, radiant_team_id, dire_team_id, radiant_win, start_time,
+             radiant:teams!matches_radiant_team_id_fkey(name),
+             dire:teams!matches_dire_team_id_fkey(name)`
+          )
+          .eq("league_id", id)
+          .order("start_time", { ascending: false })
+          .limit(200)
+          .returns<MatchRow[]>(),
       ]);
-      error = lRes.error ?? mRes.error ?? sRes.error;
+      error = lRes.error ?? mRes.error ?? sRes.error ?? mlRes.error;
       if (lRes.data?.name) name = lRes.data.name;
       totalMatches = mRes.count ?? 0;
       rows = sRes.data ?? [];
+      matchList = mlRes.data ?? [];
     } catch (e) {
       error = { message: e instanceof Error ? e.message : String(e) };
     }
@@ -136,6 +163,63 @@ export default async function TournamentDetailPage({
           </tbody>
         </table>
       )}
+
+      {matchList.length > 0 && (
+        <>
+          <div className="h2" style={{ marginTop: 28 }}>
+            Matches <span className="dim">({matchList.length})</span>
+          </div>
+          <table className="data-table">
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th className="right">Radiant</th>
+                <th className="num">Result</th>
+                <th>Dire</th>
+                <th className="num">Match</th>
+              </tr>
+            </thead>
+            <tbody>
+              {matchList.map((m) => {
+                const radWon = m.radiant_win === true;
+                const dirWon = m.radiant_win === false;
+                return (
+                  <tr key={m.match_id}>
+                    <td className="dim">{fmtDate(m.start_time)}</td>
+                    <td className={`right ${radWon ? "wr-good" : ""}`}>
+                      <MatchTeam id={m.radiant_team_id} name={m.radiant?.name} />
+                    </td>
+                    <td className="num">
+                      {m.radiant_win === null ? (
+                        <span className="dim">—</span>
+                      ) : (
+                        <span className="dim">{radWon ? "◄ W" : "W ►"}</span>
+                      )}
+                    </td>
+                    <td className={dirWon ? "wr-good" : ""}>
+                      <MatchTeam id={m.dire_team_id} name={m.dire?.name} />
+                    </td>
+                    <td className="num">
+                      <a
+                        href={`https://www.dotabuff.com/matches/${m.match_id}`}
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        {m.match_id}
+                      </a>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </>
+      )}
     </main>
   );
+}
+
+function MatchTeam({ id, name }: { id: number | null; name: string | null | undefined }) {
+  const label = name ?? (id ? `Team ${id}` : "TBD");
+  return id ? <Link href={`/teams/${id}`}>{label}</Link> : <span>{label}</span>;
 }

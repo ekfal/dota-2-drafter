@@ -1,12 +1,18 @@
-import Link from "next/link";
 import { getServerSupabase } from "@/lib/supabase";
+import TeamSearch from "./TeamSearch";
 
-// FR-2 entry: list team yang punya agregat. Anon read-only.
+// FR-2 entry: list tim yang PUNYA match (>= MIN_MATCHES) + search. Anon read-only.
+// Sumber = tally match count dari `matches` (bukan team_hero_stats) → tiap tim di list
+// dijamin punya halaman berisi (no dead-end). Urut match count desc → tim pro naik, tim tipis turun.
 export const dynamic = "force-dynamic";
+
+const MIN_MATCHES = 1; // tim tampil kalau punya >= ini match ter-tag
 
 interface TeamRow {
   team_id: number;
   name: string | null;
+  tag: string | null;
+  matches: number;
 }
 
 export default async function TeamsPage() {
@@ -15,22 +21,32 @@ export default async function TeamsPage() {
 
   try {
     const supabase = getServerSupabase();
-    const statRes = await supabase
-      .from("team_hero_stats")
-      .select("team_id")
-      .returns<{ team_id: number }[]>();
-    if (statRes.error) throw new Error(statRes.error.message);
-    const ids = [...new Set((statRes.data ?? []).map((r) => r.team_id))];
+
+    // tally match per tim dari matches (radiant/dire)
+    const mRes = await supabase
+      .from("matches")
+      .select("radiant_team_id, dire_team_id")
+      .returns<{ radiant_team_id: number | null; dire_team_id: number | null }[]>();
+    if (mRes.error) throw new Error(mRes.error.message);
+
+    const count = new Map<number, number>();
+    for (const m of mRes.data ?? []) {
+      for (const t of [m.radiant_team_id, m.dire_team_id]) {
+        if (t) count.set(t, (count.get(t) ?? 0) + 1);
+      }
+    }
+    const ids = [...count.entries()].filter(([, n]) => n >= MIN_MATCHES).map(([id]) => id);
 
     if (ids.length > 0) {
       const tRes = await supabase
         .from("teams")
-        .select("team_id, name")
+        .select("team_id, name, tag")
         .in("team_id", ids)
-        .order("name")
-        .returns<TeamRow[]>();
+        .returns<{ team_id: number; name: string | null; tag: string | null }[]>();
       if (tRes.error) throw new Error(tRes.error.message);
-      teams = tRes.data ?? [];
+      teams = (tRes.data ?? [])
+        .map((t) => ({ ...t, matches: count.get(t.team_id) ?? 0 }))
+        .sort((a, b) => b.matches - a.matches || (a.name ?? "").localeCompare(b.name ?? ""));
     }
   } catch (e) {
     error = { message: e instanceof Error ? e.message : String(e) };
@@ -40,32 +56,15 @@ export default async function TeamsPage() {
     <main className="container">
       <section className="section-eyebrow">
         <h1>Teams</h1>
-        <div className="sub">Agregat pick / ban per tim.</div>
+        <div className="sub">Tim dengan match pro di DB. Urut by jumlah match.</div>
       </section>
 
       {error ? (
         <p>Gagal baca data: {error.message}</p>
       ) : teams.length === 0 ? (
-        <p>Belum ada agregat. Jalankan job aggregate dulu.</p>
+        <p>Belum ada match. Jalankan job ingest dulu.</p>
       ) : (
-        <table className="data-table">
-          <thead>
-            <tr>
-              <th>Team</th>
-              <th className="num">ID</th>
-            </tr>
-          </thead>
-          <tbody>
-            {teams.map((t) => (
-              <tr key={t.team_id}>
-                <td>
-                  <Link href={`/teams/${t.team_id}`}>{t.name ?? `Team ${t.team_id}`}</Link>
-                </td>
-                <td className="num">{t.team_id}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        <TeamSearch teams={teams} />
       )}
     </main>
   );

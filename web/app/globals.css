@@ -103,6 +103,9 @@ a:hover {
   text-align: right;
   font-variant-numeric: tabular-nums;
 }
+.right {
+  text-align: right;
+}
 .card {
   background: var(--surface);
   border: 1px solid var(--border);
@@ -238,6 +241,50 @@ a:hover {
   align-self: center;
 }
 
+/* ---------- filter bar (patch + tournament) ---------- */
+.filter-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin: 14px 0 4px;
+}
+.filter-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.filter-field > span {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-dim);
+}
+.filter-field select,
+.search-input {
+  background: var(--surface-2);
+  border: 1px solid var(--border-strong);
+  color: var(--text);
+  border-radius: 8px;
+  padding: 7px 10px;
+  font-family: var(--font);
+  font-size: 13px;
+}
+.filter-field select {
+  min-width: 200px;
+  cursor: pointer;
+}
+.filter-field select:focus,
+.search-input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+.search-input {
+  display: block;
+  width: 100%;
+  max-width: 360px;
+  margin-bottom: 14px;
+}
+
 /* portrait tile */
 .portrait {
   display: block;
@@ -263,7 +310,8 @@ a:hover {
 .portrait .g {
   display: block;
   text-align: center;
-  font-size: 11px;
+  font-size: 10px;
+  white-space: nowrap;
   color: var(--text-muted);
   margin-top: 2px;
 }
