@@ -90,6 +90,7 @@ create table match_players (
   player_slot smallint,                    -- 0-4 radiant, 128-132 dire
   net_worth   int,                         -- buat ranking core/support (slim, tak simpan gold_t/xp_t)
   position    smallint,                    -- derived 1-5 (heuristik net-worth-first), recomputable
+  lane_result smallint,                    -- STRATZ lane outcome per-player: 1=won 0=tie -1=lost, null=roam/no-lane/pra-fetch
   primary key (match_id, hero_id)
 );
 

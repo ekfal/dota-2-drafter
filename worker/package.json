@@ -15,6 +15,8 @@
     "sync-teams:local": "tsx --env-file=.env.local src/sync-teams.ts",
     "patches": "tsx src/patches.ts",
     "patches:local": "tsx --env-file=.env.local src/patches.ts",
+    "stratz": "tsx src/stratz.ts",
+    "stratz:local": "tsx --env-file=.env.local src/stratz.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
