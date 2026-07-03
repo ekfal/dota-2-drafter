@@ -135,6 +135,54 @@ export async function seedHeroes(db: SupabaseClient): Promise<void> {
   console.log(`Seeded ${rows.length} heroes (with img).`);
 }
 
+// ---------- patches seed + resolver ----------
+interface PatchConst {
+  name: string;
+  date: string; // ISO
+  id: number;
+}
+export interface PatchRow {
+  id: number;
+  start_time: number; // epoch detik
+}
+
+// Seed tabel patches dari dotaconstants (via OpenDota /constants/patch).
+export async function seedPatches(db: SupabaseClient): Promise<void> {
+  const patches = await opendota<PatchConst[]>("/constants/patch");
+  const rows = patches
+    .map((p) => ({ id: p.id, name: p.name, start_time: Math.floor(Date.parse(p.date) / 1000) }))
+    .filter((r) => Number.isFinite(r.start_time));
+  const { error } = await db.from("patches").upsert(rows, { onConflict: "id" });
+  if (error) throw new Error(`upsert patches: ${error.message}`);
+  patchCache = null; // invalidate
+  console.log(`Seeded ${rows.length} patches.`);
+}
+
+// patch untuk sebuah start_time = patch terakhir yang start_time-nya <= waktu match.
+// patches WAJIB urut naik by start_time.
+export function pickPatchId(patches: PatchRow[], startTime: number | null): number | null {
+  if (!startTime) return null;
+  let found: number | null = null;
+  for (const p of patches) {
+    if (p.start_time <= startTime) found = p.id;
+    else break;
+  }
+  return found;
+}
+
+let patchCache: PatchRow[] | null = null;
+async function getPatches(db: SupabaseClient): Promise<PatchRow[]> {
+  if (patchCache) return patchCache;
+  const { data, error } = await db
+    .from("patches")
+    .select("id, start_time")
+    .order("start_time", { ascending: true })
+    .returns<PatchRow[]>();
+  if (error) throw new Error(`read patches: ${error.message}`);
+  patchCache = data ?? [];
+  return patchCache;
+}
+
 // ---------- per-match ingest (idempotent) ----------
 export async function ingestMatch(db: SupabaseClient, m: ProMatch): Promise<IngestStatus> {
   const detail = await opendota<MatchDetail>(`/matches/${m.match_id}`);
@@ -152,11 +200,12 @@ export async function ingestMatch(db: SupabaseClient, m: ProMatch): Promise<Inge
   await upsertTeam(db, m.radiant_team_id, m.radiant_name);
   await upsertTeam(db, m.dire_team_id, m.dire_name);
 
+  const patch_id = pickPatchId(await getPatches(db), m.start_time);
   const { error: mErr } = await db.from("matches").upsert(
     {
       match_id: m.match_id,
       league_id: m.leagueid && m.leagueid > 0 ? m.leagueid : null,
-      patch_id: null,
+      patch_id,
       radiant_team_id: m.radiant_team_id || null,
       dire_team_id: m.dire_team_id || null,
       radiant_win: m.radiant_win,
