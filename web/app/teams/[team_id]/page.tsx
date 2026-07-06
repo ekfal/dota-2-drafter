@@ -117,6 +117,24 @@ export interface RoleDuoGroup {
   label: string;
   duos: Duo[];
 }
+// #6 lane matchup vs lawan (current filter scope): duo lane kita vs duo lawan berhadapan, W/L lane (core).
+interface MatchupHero {
+  name: string;
+  img: string | null;
+}
+interface LaneMatchup {
+  matchId: number;
+  start_time: number | null;
+  ourDuo: MatchupHero[]; // 1-2 hero lane kita
+  oppDuo: MatchupHero[]; // 1-2 hero lane lawan berhadapan
+  oppId: number | null;
+  oppName: string;
+  laneResult: number | null; // lane_result core kita: 1 W / 0 tie / -1 L / null no-data
+}
+interface LaneMatchupGroup {
+  label: string;
+  matchups: LaneMatchup[];
+}
 // #3 conditional pick → ban (FIX-A: lift-based)
 export interface CondBan {
   hero_id: number;
@@ -281,6 +299,7 @@ export default async function TeamPage({
 
   // match_players + picks_bans untuk scope terpilih
   let teamMp: MpRow[] = [];
+  let oppMp: MpRow[] = []; // #6: sisi lawan (buat lane matchup)
   let teamPb: PbRow[] = [];
   let allPb: PbRow[] = [];
   if (matchIds.length > 0) {
@@ -304,6 +323,7 @@ export default async function TeamPage({
         .returns<PbRow[]>(),
     ]);
     teamMp = (mpRes.data ?? []).filter((r) => side.get(r.match_id) === r.is_radiant);
+    oppMp = (mpRes.data ?? []).filter((r) => side.get(r.match_id) !== r.is_radiant);
     allPb = pbRes.data ?? [];
     // hanya pick/ban milik sisi tim: (team===0)===isRadiant
     teamPb = allPb.filter((r) => side.get(r.match_id) === (r.team === 0));
@@ -465,6 +485,55 @@ export default async function TeamPage({
   const roleDuoGroups: RoleDuoGroup[] = [
     duoGroup("Safelane · 1+5", 1, 5),
     duoGroup("Offlane · 3+4", 3, 4),
+  ];
+
+  // #6 lane matchup vs lawan: duo lane kita vs duo lawan berhadapan (safe↔off), W/L lane (core).
+  const oppPosHeroByMatch = new Map<number, Map<number, DuoHero>>();
+  for (const r of oppMp) {
+    if (r.position == null) continue;
+    const pm = oppPosHeroByMatch.get(r.match_id) ?? new Map<number, DuoHero>();
+    pm.set(r.position, {
+      hero_id: r.hero_id,
+      name: r.hero?.localized_name ?? String(r.hero_id),
+      img: r.hero?.img ?? null,
+    });
+    oppPosHeroByMatch.set(r.match_id, pm);
+  }
+  // lane_result core kita per (match, pos)
+  const teamLaneRes = new Map<string, number | null>();
+  for (const r of teamMp) if (r.position != null) teamLaneRes.set(`${r.match_id}:${r.position}`, r.lane_result);
+
+  function laneMatchupGroup(
+    label: string,
+    ourPos: [number, number],
+    oppPos: [number, number],
+    corePos: number
+  ): LaneMatchupGroup {
+    const rows: LaneMatchup[] = [];
+    for (const m of filtered) {
+      const our = posHeroByMatch.get(m.match_id);
+      if (!our) continue;
+      const ourDuo = ourPos.map((p) => our.get(p)).filter((h): h is DuoHero => !!h);
+      if (ourDuo.length === 0) continue; // gak ada data lane kita
+      const opp = oppPosHeroByMatch.get(m.match_id);
+      const oppDuo = oppPos.map((p) => opp?.get(p)).filter((h): h is DuoHero => !!h);
+      const isRad = side.get(m.match_id) === true;
+      rows.push({
+        matchId: m.match_id,
+        start_time: m.start_time ?? null,
+        ourDuo: ourDuo.map((h) => ({ name: h.name, img: h.img })),
+        oppDuo: oppDuo.map((h) => ({ name: h.name, img: h.img })),
+        oppId: (isRad ? m.dire_team_id : m.radiant_team_id) ?? null,
+        oppName: (isRad ? m.dire?.name : m.radiant?.name) ?? "Unknown",
+        laneResult: teamLaneRes.get(`${m.match_id}:${corePos}`) ?? null,
+      });
+    }
+    rows.sort((a, b) => (b.start_time ?? 0) - (a.start_time ?? 0));
+    return { label, matchups: rows.slice(0, 20) };
+  }
+  const laneMatchups: LaneMatchupGroup[] = [
+    laneMatchupGroup("Safelane · our 1+5 vs opp 3+4", [1, 5], [3, 4], 1),
+    laneMatchupGroup("Offlane · our 3+4 vs opp 1+5", [3, 4], [1, 5], 3),
   ];
 
   // #3 conditional pick → ban — FIX-A: LIFT (smoothed), ALL-TIME TEAM-WIDE (decoupled dari filter).
@@ -670,6 +739,16 @@ export default async function TeamPage({
         </div>
       </div>
 
+      {/* #6 lane matchup vs opponent — per-match list, current filter scope */}
+      <div className="h2">Lane matchups vs opponent (STRATZ)</div>
+      {laneMatchups.map((g) => (
+        <LaneMatchupCard key={g.label} group={g} />
+      ))}
+      <div className="dim" style={{ fontSize: 12, marginTop: 6 }}>
+        Duo lane kita vs duo lawan berhadapan (safe↔off), hasil lane pakai core (pos1/pos3, STRATZ). Scope =
+        filter aktif di atas. Lane — = no-data/roamer.
+      </div>
+
       {/* sekunder: tabel + chart */}
       <div className="h2">Most picked / banned</div>
       <div className="data-grid">
@@ -808,6 +887,87 @@ function LaneBar({ agg }: { agg: LaneAgg }) {
           {low ? " · low" : ""})
         </span>
       </span>
+    </div>
+  );
+}
+
+// #6: mini portrait duo (lane matchup)
+function MatchupThumbs({ heroes }: { heroes: { name: string; img: string | null }[] }) {
+  if (heroes.length === 0) return <span className="dim">—</span>;
+  return (
+    <span className="lm-duo">
+      {heroes.map((h, i) => {
+        const src = heroSrc(h.img);
+        return src ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img key={i} className="hero-mini" src={src} alt={h.name} title={h.name} width={34} height={20} />
+        ) : (
+          <span key={i} className="dim" title={h.name}>
+            {h.name.slice(0, 3)}
+          </span>
+        );
+      })}
+    </span>
+  );
+}
+
+function LaneMatchupCard({ group }: { group: LaneMatchupGroup }) {
+  const lane = (lr: number | null) =>
+    lr === 1
+      ? { txt: "Lane W", cls: "lane-won" }
+      : lr === -1
+        ? { txt: "Lane L", cls: "lane-lost" }
+        : lr === 0
+          ? { txt: "Lane =", cls: "lane-tie" }
+          : { txt: "Lane —", cls: "lane-na" };
+  let w = 0;
+  let l = 0;
+  let t = 0;
+  let na = 0;
+  for (const m of group.matchups) {
+    if (m.laneResult === 1) w++;
+    else if (m.laneResult === -1) l++;
+    else if (m.laneResult === 0) t++;
+    else na++;
+  }
+  const decided = w + l;
+  return (
+    <div className="card lm-card">
+      <div className="lm-head">
+        <b>{group.label}</b>{" "}
+        <span className={`dim`}>
+          {decided > 0 ? `${wrPct(w, decided)}% lane` : "—"} ({w}-{t}-{l}
+          {na ? ` · ${na} n/a` : ""} · {group.matchups.length} match)
+        </span>
+      </div>
+      {group.matchups.length === 0 ? (
+        <div className="dim">No lane data in scope.</div>
+      ) : (
+        <div className="lm-rows">
+          {group.matchups.map((m) => {
+            const L = lane(m.laneResult);
+            return (
+              <div key={m.matchId} className="lm-row">
+                <span className={`lane-chip ${L.cls}`}>{L.txt}</span>
+                <MatchupThumbs heroes={m.ourDuo} />
+                <span className="dim lm-vs">vs</span>
+                <MatchupThumbs heroes={m.oppDuo} />
+                <span className="lm-opp">
+                  {m.oppId ? <Link href={`/teams/${m.oppId}`}>{m.oppName}</Link> : m.oppName}
+                </span>
+                <a
+                  className="lm-match dim"
+                  href={`https://www.dotabuff.com/matches/${m.matchId}`}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  {m.matchId}
+                </a>
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }

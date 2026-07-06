@@ -542,6 +542,44 @@ button.pos-others-toggle.open {
   font-size: 11px;
   margin-top: 2px;
 }
+/* #6 lane matchups vs opponent */
+.lm-card {
+  margin-bottom: 10px;
+}
+.lm-head {
+  font-size: 13px;
+  margin-bottom: 8px;
+}
+.lm-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.lm-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  font-size: 12px;
+}
+.lm-duo {
+  display: inline-flex;
+  gap: 3px;
+  align-items: center;
+}
+.lm-duo .hero-mini {
+  border-radius: 3px;
+}
+.lm-vs {
+  font-size: 11px;
+}
+.lm-opp {
+  flex: 1;
+  min-width: 90px;
+}
+.lm-match {
+  font-variant-numeric: tabular-nums;
+}
 
 /* #2 role-duo pairing */
 .duo-grid {
