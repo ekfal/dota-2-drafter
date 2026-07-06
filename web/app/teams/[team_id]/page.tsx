@@ -18,7 +18,8 @@ const MATCH_CAP = 80; // batasi match_players/picks_bans < 1000 baris (limit Pos
 // filter patch/tournament) → butuh volume. K = pseudo-match smoothing, shrink lift ke baseline biar
 // nggak meledak di n kecil. Data tipis → gampang tweak (turunin ke 3 kalau semua lift flat ~1).
 const LIFT_SMOOTHING_K = 5;
-const COND_PICK_GATE = 8; // pX minimal biar hero X ditampilkan (sample gate)
+const COND_PICK_GATE = 4; // pX minimal biar hero X ditampilkan (display floor, adaptif)
+const COND_RELIABLE_PX = 8; // pX >= ini = "reliable"; 4-7 = indikatif/sample kecil (dimmed)
 const COND_CO_GATE = 2; // co minimal biar hero Y jadi coban X (buang noise 1x)
 
 interface MetaRow {
@@ -125,6 +126,7 @@ export interface CondPick {
   name: string;
   img: string | null;
   pickCount: number; // # match tim pick X (>= gate)
+  reliable: boolean; // pX >= COND_RELIABLE_PX (8); false = indikatif/sample kecil
   cobans: CondBan[]; // urut lift desc
 }
 
@@ -548,9 +550,17 @@ export default async function TeamPage({
       if (cobans.length === 0) continue;
       cobans.sort((a, b) => b.lift - a.lift); // lift desc → meta-ban (lift~1) tenggelam ke bawah
       const meta = gHeroMeta.get(x)!;
-      condPicks.push({ hero_id: x, name: meta.name, img: meta.img, pickCount: pX, cobans });
+      condPicks.push({
+        hero_id: x,
+        name: meta.name,
+        img: meta.img,
+        pickCount: pX,
+        reliable: pX >= COND_RELIABLE_PX,
+        cobans,
+      });
     }
-    condPicks.sort((a, b) => b.pickCount - a.pickCount);
+    // reliable dulu (biar sinyal kuat di atas), lalu pickCount desc dalam tiap grup
+    condPicks.sort((a, b) => Number(b.reliable) - Number(a.reliable) || b.pickCount - a.pickCount);
   }
 
   // most picked / banned (on-the-fly dari picks_bans sisi tim)
@@ -633,8 +643,9 @@ export default async function TeamPage({
       <CondPickBan picks={condPicks} />
       <div className="dim" style={{ fontSize: 12, marginTop: 6 }}>
         Lift = seberapa sering tim ban hero Y saat pick X vs baseline ban Y. Lift &gt;1 = ban spesifik (bukan
-        meta). Pool: {condM} match tim <b>lintas patch — di luar filter di atas</b>. Sample gate: pick X ≥
-        {COND_PICK_GATE}, co ≥{COND_CO_GATE}.
+        meta). Pool: {condM} match tim <b>lintas patch — di luar filter di atas</b>. Tampil pick X ≥
+        {COND_PICK_GATE}; pick X ≥{COND_RELIABLE_PX} = reliable, {COND_PICK_GATE}–{COND_RELIABLE_PX - 1} =
+        indikatif (di-redam). co ≥{COND_CO_GATE}.
       </div>
 
       {/* duo-lane win-lane% (STRATZ) */}

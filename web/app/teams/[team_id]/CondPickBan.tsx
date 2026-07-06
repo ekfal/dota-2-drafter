@@ -21,28 +21,41 @@ export default function CondPickBan({ picks }: { picks: CondPick[] }) {
   if (picks.length === 0) return <div className="dim">No pick data in scope.</div>;
 
   const active = picks.find((p) => p.hero_id === sel) ?? picks[0]!;
+  // picks sudah urut reliable dulu (server). Cari batas transisi buat divider "low confidence".
+  const firstIndicative = picks.findIndex((p) => !p.reliable);
 
   return (
     <div className="cpb">
-      {/* kiri: list hero yang di-pick */}
+      {/* kiri: list hero yang di-pick — reliable dulu, lalu indikatif (dimmed) */}
       <div className="cpb-list">
-        {picks.map((p) => (
-          <button
-            key={p.hero_id}
-            className={`cpb-pick ${p.hero_id === active.hero_id ? "active" : ""}`}
-            onClick={() => setSel(p.hero_id)}
-          >
-            <Thumb img={p.img} name={p.name} w={40} h={23} />
-            <span className="cpb-pick-name">{p.name}</span>
-            <span className="dim cpb-pick-n">{p.pickCount}g</span>
-          </button>
+        {picks.map((p, i) => (
+          <div key={p.hero_id}>
+            {i === firstIndicative && firstIndicative > 0 ? (
+              <div className="cpb-divider dim">Low confidence · n&lt;8</div>
+            ) : null}
+            <button
+              className={`cpb-pick ${p.hero_id === active.hero_id ? "active" : ""}`}
+              style={p.reliable ? undefined : { opacity: 0.6 }}
+              onClick={() => setSel(p.hero_id)}
+            >
+              <Thumb img={p.img} name={p.name} w={40} h={23} />
+              <span className="cpb-pick-name">{p.name}</span>
+              <span className="dim cpb-pick-n">{p.reliable ? `${p.pickCount}g` : `n${p.pickCount}`}</span>
+            </button>
+          </div>
         ))}
       </div>
 
       {/* kanan: co-ban hero terpilih — urut lift desc */}
       <div className="cpb-panel">
         <div className="cpb-panel-head">
-          When picked <b>{active.name}</b> <span className="dim">({active.pickCount} game)</span> → bans by lift:
+          When picked <b>{active.name}</b> <span className="dim">({active.pickCount} game)</span>
+          {active.reliable ? null : (
+            <span className="cpb-badge" title="pick sample kecil (n<8) — anggap indikasi awal, bukan sinyal kuat">
+              indikatif · sample kecil
+            </span>
+          )}{" "}
+          → bans by lift:
         </div>
         {active.cobans.length === 0 ? (
           <div className="dim">No bans recorded in these matches.</div>

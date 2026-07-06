@@ -644,6 +644,25 @@ a:hover {
 .cpb-pick-n {
   font-size: 11px;
 }
+.cpb-divider {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 8px 4px 3px;
+  border-top: 1px solid var(--border);
+  margin-top: 4px;
+}
+.cpb-badge {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 6px;
+  font-size: 10px;
+  border-radius: 999px;
+  color: var(--text-muted);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  vertical-align: middle;
+}
 .cpb-img {
   object-fit: cover;
   border-radius: 3px;
