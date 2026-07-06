@@ -81,13 +81,18 @@ export interface PoolHero {
   wins: number;
   matches: DrillMatch[];
 }
+export interface OtherPlayer {
+  playerId: number | null;
+  name: string;
+  games: number; // # game player ini di posisi ini (scope filter)
+}
 export interface PosData {
   pos: number;
   label: string;
   playerId: number | null;
   playerName: string;
   pool: PoolHero[];
-  otherPlayers: number;
+  others: OtherPlayer[]; // pemain lain (non-dominant) di posisi ini, games desc
 }
 // duo-lane win-lane% (STRATZ lane_result, rep core: safe=pos1, mid=pos2, off=pos3)
 interface LaneAgg {
@@ -394,13 +399,19 @@ export default async function TeamPage({
       }))
       .sort((a, b) => b.games - a.games);
 
+    // FIX-C: pemain lain di posisi ini (non-dominant) + jumlah game, games desc.
+    const others: OtherPlayer[] = [...byPlayer.entries()]
+      .filter(([k]) => k !== domId)
+      .map(([k, v]) => ({ playerId: k > 0 ? k : null, name: v.name, games: v.games }))
+      .sort((a, b) => b.games - a.games);
+
     return {
       pos,
       label: POS_LABEL[pos]!,
       playerId: domId > 0 ? domId : null,
       playerName: domName,
       pool,
-      otherPlayers: Math.max(0, byPlayer.size - 1),
+      others,
     };
   });
 

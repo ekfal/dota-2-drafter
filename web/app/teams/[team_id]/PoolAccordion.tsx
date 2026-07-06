@@ -157,18 +157,44 @@ function Portrait({
 
 export default function PoolAccordion({ positions }: { positions: PosData[] }) {
   const [openKey, setOpenKey] = useState<string | null>(null); // single-open global
+  const [openOthers, setOpenOthers] = useState<number | null>(null); // pos yg "other players"-nya kebuka
 
   return (
     <div className="pos-pool">
       {positions.map((row) => {
         const openHero = row.pool.find((h) => `${row.pos}:${h.hero_id}` === openKey) ?? null;
+        const othersOpen = openOthers === row.pos;
         return (
           <div key={row.pos} className="pos-block">
             <div className="pos-row">
               <div className="pos-head">
                 <div className="pos-tag">{row.label}</div>
                 <div className="pos-player">{row.playerName}</div>
-                {row.otherPlayers > 0 && <div className="pos-sub">+{row.otherPlayers} other player(s)</div>}
+                {row.others.length > 0 && (
+                  <button
+                    type="button"
+                    className={`pos-sub pos-others-toggle ${othersOpen ? "open" : ""}`}
+                    onClick={() => setOpenOthers((cur) => (cur === row.pos ? null : row.pos))}
+                  >
+                    +{row.others.length} other player(s) {othersOpen ? "▾" : "▸"}
+                  </button>
+                )}
+                {othersOpen && (
+                  <div className="pos-others">
+                    {row.others.map((o, i) => (
+                      <div key={o.playerId ?? `anon${i}`} className="pos-other">
+                        <span className="pos-other-name">
+                          {o.playerId ? (
+                            <Link href={`/players/${o.playerId}`}>{o.name}</Link>
+                          ) : (
+                            <span className="dim">{o.name}</span>
+                          )}
+                        </span>
+                        <span className="dim pos-other-g">{o.games}g</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
               <div className="pool">
                 {row.pool.length === 0 ? (
