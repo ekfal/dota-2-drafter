@@ -505,8 +505,14 @@ export default async function TeamPage({
       banMap.set(r.hero_id, b);
     }
   }
-  const pickRows = [...pickMap.values()].sort((a, b) => b.picks - a.picks).slice(0, 15);
-  const banRows = [...banMap.values()].sort((a, b) => b.bans - a.bans).slice(0, 15);
+  const pickRows = [...pickMap.entries()]
+    .map(([hero_id, v]) => ({ hero_id, ...v }))
+    .sort((a, b) => b.picks - a.picks)
+    .slice(0, 15);
+  const banRows = [...banMap.entries()]
+    .map(([hero_id, v]) => ({ hero_id, ...v }))
+    .sort((a, b) => b.bans - a.bans)
+    .slice(0, 15);
 
   const initials = teamName.slice(0, 2).toUpperCase();
   const logo = team?.logo_url;
@@ -590,7 +596,7 @@ export default async function TeamPage({
 function PickTable({
   rows,
 }: {
-  rows: { name: string; img: string | null; picks: number; wins: number }[];
+  rows: { hero_id: number; name: string; img: string | null; picks: number; wins: number }[];
 }) {
   return (
     <table className="data-table">
@@ -614,13 +620,13 @@ function PickTable({
             return (
               <tr key={i}>
                 <td>
-                  <span className="hero-cell">
+                  <Link className="hero-cell" href={`/heroes/${r.hero_id}`}>
                     {src ? (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img className="hero-mini" src={src} alt="" width={34} height={20} />
                     ) : null}
                     {r.name}
-                  </span>
+                  </Link>
                 </td>
                 <td className="num">{r.picks}</td>
                 <td className={`num ${wrColor(r.wins, r.picks)}`}>
@@ -635,7 +641,7 @@ function PickTable({
   );
 }
 
-function BanTable({ rows }: { rows: { name: string; img: string | null; bans: number }[] }) {
+function BanTable({ rows }: { rows: { hero_id: number; name: string; img: string | null; bans: number }[] }) {
   return (
     <table className="data-table">
       <thead>
@@ -657,13 +663,13 @@ function BanTable({ rows }: { rows: { name: string; img: string | null; bans: nu
             return (
               <tr key={i}>
                 <td>
-                  <span className="hero-cell">
+                  <Link className="hero-cell" href={`/heroes/${r.hero_id}`}>
                     {src ? (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img className="hero-mini" src={src} alt="" width={34} height={20} />
                     ) : null}
                     {r.name}
-                  </span>
+                  </Link>
                 </td>
                 <td className="num">{r.bans}</td>
               </tr>

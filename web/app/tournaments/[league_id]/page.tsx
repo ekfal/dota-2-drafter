@@ -11,6 +11,7 @@ interface HeroRef {
   img: string | null;
 }
 interface StatRow {
+  hero_id: number;
   picks: number;
   bans: number;
   contest: number;
@@ -75,7 +76,7 @@ export default async function TournamentDetailPage({
         supabase
           .from("tournament_hero_stats")
           .select(
-            `picks, bans, contest,
+            `hero_id, picks, bans, contest,
              hero:heroes!tournament_hero_stats_hero_id_fkey(localized_name, img)`
           )
           .eq("league_id", id)
@@ -147,12 +148,16 @@ export default async function TournamentDetailPage({
                 <tr key={r.hero?.localized_name ?? i}>
                   <td className="num">{i + 1}</td>
                   <td style={{ width: 60 }}>
-                    {src ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img className="hero-img" src={src} alt={r.hero?.localized_name ?? ""} width={48} height={27} />
-                    ) : null}
+                    <Link href={`/heroes/${r.hero_id}`}>
+                      {src ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img className="hero-img" src={src} alt={r.hero?.localized_name ?? ""} width={48} height={27} />
+                      ) : null}
+                    </Link>
                   </td>
-                  <td>{r.hero?.localized_name ?? "—"}</td>
+                  <td>
+                    <Link href={`/heroes/${r.hero_id}`}>{r.hero?.localized_name ?? "—"}</Link>
+                  </td>
                   <td className="num">{r.picks}</td>
                   <td className="num">{r.bans}</td>
                   <td className="num">{r.contest}</td>

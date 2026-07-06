@@ -681,6 +681,52 @@ a:hover {
   font-variant-numeric: tabular-nums;
 }
 
+/* #4 hero page */
+.hero-hero-img {
+  width: 110px;
+  height: 62px;
+  object-fit: cover;
+  border-radius: 6px;
+  display: block;
+}
+.badge-pro {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 5px;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  color: var(--accent);
+  border: 1px solid var(--border-strong);
+  border-radius: 4px;
+  vertical-align: middle;
+}
+.hero-stats {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+  margin: 16px 0 8px;
+}
+.hstat {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px 14px;
+}
+.hstat-v {
+  font-size: 24px;
+  font-weight: 700;
+}
+.hstat-l {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+.hstat-s {
+  font-size: 11px;
+  margin-top: 1px;
+}
+
 /* ---------- data-table (sekunder, dark) ---------- */
 .data-grid {
   display: grid;
