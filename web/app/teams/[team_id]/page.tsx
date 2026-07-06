@@ -450,11 +450,10 @@ export default async function TeamPage({
       duos: [...map.values()].sort((x, y) => y.games - x.games || y.wins - x.wins),
     };
   }
+  // FIX-B: cuma lane-duo fisik nyata — Safelane (1+5) + Offlane (3+4). Mid-duo dihapus (mid solo).
   const roleDuoGroups: RoleDuoGroup[] = [
     duoGroup("Safelane · 1+5", 1, 5),
     duoGroup("Offlane · 3+4", 3, 4),
-    duoGroup("Mid · 2+4", 2, 4),
-    duoGroup("Mid · 2+5", 2, 5),
   ];
 
   // #3 conditional pick → ban — FIX-A: LIFT (smoothed), ALL-TIME TEAM-WIDE (decoupled dari filter).
