@@ -39,25 +39,30 @@ export default function CondPickBan({ picks }: { picks: CondPick[] }) {
         ))}
       </div>
 
-      {/* kanan: co-ban hero terpilih */}
+      {/* kanan: co-ban hero terpilih — urut lift desc */}
       <div className="cpb-panel">
         <div className="cpb-panel-head">
-          When picked <b>{active.name}</b> <span className="dim">({active.pickCount} game)</span> → bans:
+          When picked <b>{active.name}</b> <span className="dim">({active.pickCount} game)</span> → bans by lift:
         </div>
         {active.cobans.length === 0 ? (
           <div className="dim">No bans recorded in these matches.</div>
         ) : (
           <div className="cpb-bans">
-            {active.cobans.map((b) => (
-              <div key={b.hero_id} className="cpb-ban">
-                <Thumb img={b.img} name={b.name} />
-                <span className="cpb-ban-name">{b.name}</span>
-                <span className="cpb-ban-count">
-                  {b.count}×{" "}
-                  <span className="dim">({Math.round((b.count / active.pickCount) * 100)}%)</span>
-                </span>
-              </div>
-            ))}
+            {active.cobans.map((b) => {
+              const meta = b.lift < 1.2; // lift ~1 = meta-ban, redam
+              return (
+                <div key={b.hero_id} className="cpb-ban" style={meta ? { opacity: 0.55 } : undefined}>
+                  <Thumb img={b.img} name={b.name} />
+                  <span className="cpb-ban-name">{b.name}</span>
+                  <span className="cpb-ban-count">
+                    <b className={b.lift >= 2 ? "wr-good" : undefined}>{b.lift.toFixed(1)}×</b>{" "}
+                    <span className="dim">
+                      {b.co}/{active.pickCount} · {b.confidence}%
+                    </span>
+                  </span>
+                </div>
+              );
+            })}
           </div>
         )}
       </div>

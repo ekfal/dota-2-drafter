@@ -14,6 +14,13 @@ export const dynamic = "force-dynamic";
 const CDN = "https://cdn.cloudflare.steamstatic.com";
 const MATCH_CAP = 80; // batasi match_players/picks_bans < 1000 baris (limit PostgREST)
 
+// FIX-A: conditional pick→ban pakai LIFT (smoothed). Panel ini all-time team-wide (decoupled dari
+// filter patch/tournament) → butuh volume. K = pseudo-match smoothing, shrink lift ke baseline biar
+// nggak meledak di n kecil. Data tipis → gampang tweak (turunin ke 3 kalau semua lift flat ~1).
+const LIFT_SMOOTHING_K = 5;
+const COND_PICK_GATE = 8; // pX minimal biar hero X ditampilkan (sample gate)
+const COND_CO_GATE = 2; // co minimal biar hero Y jadi coban X (buang noise 1x)
+
 interface MetaRow {
   match_id: number;
   radiant_team_id: number | null;
@@ -104,19 +111,21 @@ export interface RoleDuoGroup {
   label: string;
   duos: Duo[];
 }
-// #3 conditional pick → ban
+// #3 conditional pick → ban (FIX-A: lift-based)
 export interface CondBan {
   hero_id: number;
   name: string;
   img: string | null;
-  count: number;
+  co: number; // # match tim pick X & ban Y
+  lift: number; // smoothed lift = P(ban Y|pick X) / P(ban Y)
+  confidence: number; // co/pX dalam persen (0-100)
 }
 export interface CondPick {
   hero_id: number;
   name: string;
   img: string | null;
-  pickCount: number;
-  cobans: CondBan[];
+  pickCount: number; // # match tim pick X (>= gate)
+  cobans: CondBan[]; // urut lift desc
 }
 
 function heroSrc(img: string | null | undefined): string | null {
@@ -446,45 +455,103 @@ export default async function TeamPage({
     duoGroup("Mid · 2+5", 2, 5),
   ];
 
-  // #3 conditional pick→ban: pas tim pick X, hero apa yang mereka ban di match sama.
-  const picksByMatch = new Map<number, PbRow[]>();
-  const bansByMatch = new Map<number, PbRow[]>();
-  for (const r of teamPb) {
-    const m = r.is_pick ? picksByMatch : bansByMatch;
-    const arr = m.get(r.match_id) ?? [];
-    arr.push(r);
-    m.set(r.match_id, arr);
+  // #3 conditional pick → ban — FIX-A: LIFT (smoothed), ALL-TIME TEAM-WIDE (decoupled dari filter).
+  // lift(Y|X) = P(ban Y | pick X) / P(ban Y). p di-shrink ke baseline q pakai K → anti-explosion n kecil.
+  const allTeamMatches = metaRes.data ?? [];
+  const gSide = new Map<number, boolean>(); // match_id -> team isRadiant
+  for (const m of allTeamMatches) gSide.set(m.match_id, m.radiant_team_id === id);
+  const allTeamIds = allTeamMatches.map((m) => m.match_id);
+
+  // AMBIL SEMUA picks_bans (bisa > 1000 baris) via range pagination — jangan truncate diam-diam.
+  async function fetchAllPb(ids: number[]): Promise<PbRow[]> {
+    if (ids.length === 0) return [];
+    const PAGE = 1000;
+    const out: PbRow[] = [];
+    for (let from = 0; ; from += PAGE) {
+      const { data } = await supabase
+        .from("picks_bans")
+        .select(
+          `match_id, ord, is_pick, hero_id, team,
+           hero:heroes!picks_bans_hero_id_fkey(localized_name, img)`
+        )
+        .in("match_id", ids)
+        .order("match_id", { ascending: true })
+        .order("ord", { ascending: true })
+        .range(from, from + PAGE - 1)
+        .returns<PbRow[]>();
+      const rows = data ?? [];
+      out.push(...rows);
+      if (rows.length < PAGE) break; // halaman terakhir → habis
+    }
+    return out;
   }
-  const condMap = new Map<
-    number,
-    { name: string; img: string | null; pickCount: number; banTally: Map<number, CondBan> }
-  >();
-  for (const [mid, picks] of picksByMatch) {
-    const bans = bansByMatch.get(mid) ?? [];
-    for (const p of picks) {
-      const c =
-        condMap.get(p.hero_id) ??
-        { name: p.hero?.localized_name ?? String(p.hero_id), img: p.hero?.img ?? null, pickCount: 0, banTally: new Map() };
-      c.pickCount++;
-      for (const b of bans) {
-        const t =
-          c.banTally.get(b.hero_id) ??
-          { hero_id: b.hero_id, name: b.hero?.localized_name ?? String(b.hero_id), img: b.hero?.img ?? null, count: 0 };
-        t.count++;
-        c.banTally.set(b.hero_id, t);
-      }
-      condMap.set(p.hero_id, c);
+  const globalPb = await fetchAllPb(allTeamIds);
+  const gTeamPb = globalPb.filter((r) => gSide.get(r.match_id) === (r.team === 0));
+
+  // set pick/ban per match (dedupe per match) + meta hero
+  const gHeroMeta = new Map<number, { name: string; img: string | null }>();
+  const gPickByMatch = new Map<number, Set<number>>();
+  const gBanByMatch = new Map<number, Set<number>>();
+  const draftMatches = new Set<number>();
+  for (const r of gTeamPb) {
+    draftMatches.add(r.match_id);
+    gHeroMeta.set(r.hero_id, {
+      name: r.hero?.localized_name ?? String(r.hero_id),
+      img: r.hero?.img ?? null,
+    });
+    const map = r.is_pick ? gPickByMatch : gBanByMatch;
+    const s = map.get(r.match_id) ?? new Set<number>();
+    s.add(r.hero_id);
+    map.set(r.match_id, s);
+  }
+  const condM = draftMatches.size; // total match tim (punya draft) = denominator baseline
+
+  const gPickCount = new Map<number, number>();
+  const gBanCount = new Map<number, number>();
+  for (const s of gPickByMatch.values()) for (const h of s) gPickCount.set(h, (gPickCount.get(h) ?? 0) + 1);
+  for (const s of gBanByMatch.values()) for (const h of s) gBanCount.set(h, (gBanCount.get(h) ?? 0) + 1);
+
+  const coMap = new Map<number, Map<number, number>>(); // X -> (Y -> co)
+  for (const [mid, picks] of gPickByMatch) {
+    const bans = gBanByMatch.get(mid);
+    if (!bans) continue;
+    for (const x of picks) {
+      const ym = coMap.get(x) ?? new Map<number, number>();
+      for (const y of bans) ym.set(y, (ym.get(y) ?? 0) + 1);
+      coMap.set(x, ym);
     }
   }
-  const condPicks: CondPick[] = [...condMap.entries()]
-    .map(([hero_id, v]) => ({
-      hero_id,
-      name: v.name,
-      img: v.img,
-      pickCount: v.pickCount,
-      cobans: [...v.banTally.values()].sort((a, b) => b.count - a.count),
-    }))
-    .sort((a, b) => b.pickCount - a.pickCount);
+
+  const condPicks: CondPick[] = [];
+  if (condM > 0) {
+    for (const [x, pX] of gPickCount) {
+      if (pX < COND_PICK_GATE) continue; // sample gate X: pick X < 8 → skip (sample kecil)
+      const ym = coMap.get(x);
+      if (!ym) continue;
+      const cobans: CondBan[] = [];
+      for (const [y, coCount] of ym) {
+        if (coCount < COND_CO_GATE) continue; // sample gate Y
+        const bY = gBanCount.get(y) ?? 0;
+        const q = bY / condM; // baseline: seberapa sering Y diban overall
+        if (q <= 0) continue;
+        const p = (coCount + LIFT_SMOOTHING_K * q) / (pX + LIFT_SMOOTHING_K); // shrink ke q
+        const meta = gHeroMeta.get(y)!;
+        cobans.push({
+          hero_id: y,
+          name: meta.name,
+          img: meta.img,
+          co: coCount,
+          lift: p / q,
+          confidence: Math.round((coCount / pX) * 100),
+        });
+      }
+      if (cobans.length === 0) continue;
+      cobans.sort((a, b) => b.lift - a.lift); // lift desc → meta-ban (lift~1) tenggelam ke bawah
+      const meta = gHeroMeta.get(x)!;
+      condPicks.push({ hero_id: x, name: meta.name, img: meta.img, pickCount: pX, cobans });
+    }
+    condPicks.sort((a, b) => b.pickCount - a.pickCount);
+  }
 
   // most picked / banned (on-the-fly dari picks_bans sisi tim)
   const pickMap = new Map<number, { name: string; img: string | null; picks: number; wins: number }>();
@@ -558,11 +625,16 @@ export default async function TeamPage({
       <div className="h2">Role-duo combinations</div>
       <RoleDuos groups={roleDuoGroups} />
 
-      {/* #3 conditional pick → ban */}
-      <div className="h2">Conditional pick → ban</div>
+      {/* #3 conditional pick → ban — FIX-A: lift, all-time team-wide */}
+      <div className="h2">
+        Conditional pick → ban{" "}
+        <span className="dim" style={{ fontSize: 12, fontWeight: 400 }}>· all-time, team-wide</span>
+      </div>
       <CondPickBan picks={condPicks} />
       <div className="dim" style={{ fontSize: 12, marginTop: 6 }}>
-        Pilih hero → hero yang tim ini ban di match mereka pick hero itu (scope filter ini).
+        Lift = seberapa sering tim ban hero Y saat pick X vs baseline ban Y. Lift &gt;1 = ban spesifik (bukan
+        meta). Pool: {condM} match tim <b>lintas patch — di luar filter di atas</b>. Sample gate: pick X ≥
+        {COND_PICK_GATE}, co ≥{COND_CO_GATE}.
       </div>
 
       {/* duo-lane win-lane% (STRATZ) */}
