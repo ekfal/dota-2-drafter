@@ -188,14 +188,41 @@ export default function PoolAccordion({ positions }: { positions: PosData[] }) {
                   <div className="pos-others">
                     {row.others.map((o, i) => (
                       <div key={o.playerId ?? `anon${i}`} className="pos-other">
-                        <span className="pos-other-name">
-                          {o.playerId ? (
-                            <Link href={`/players/${o.playerId}`}>{o.name}</Link>
-                          ) : (
-                            <span className="dim">{o.name}</span>
-                          )}
-                        </span>
-                        <span className="dim pos-other-g">{o.games}g</span>
+                        <div className="pos-other-top">
+                          <span className="pos-other-name">
+                            {o.playerId ? (
+                              <Link href={`/players/${o.playerId}`}>{o.name}</Link>
+                            ) : (
+                              <span className="dim">{o.name}</span>
+                            )}
+                          </span>
+                          <span className="dim pos-other-g">{o.games}g</span>
+                        </div>
+                        {o.heroes.length > 0 && (
+                          <div className="pos-other-heroes">
+                            {o.heroes.map((h) => {
+                              const src = heroSrc(h.img);
+                              const losses = h.games - h.wins;
+                              return (
+                                <span
+                                  key={h.hero_id}
+                                  className="pos-other-hero"
+                                  title={`${h.name} · ${h.wins}-${losses} (${pct(h.wins, h.games)}%)`}
+                                >
+                                  {src ? (
+                                    // eslint-disable-next-line @next/next/no-img-element
+                                    <img src={src} alt={h.name} width={34} height={20} />
+                                  ) : (
+                                    <span className="poh-fallback">{h.name.slice(0, 3)}</span>
+                                  )}
+                                  <span className={`poh-wl ${h.wins > losses ? "wr-good" : losses > h.wins ? "wr-bad" : "dim"}`}>
+                                    {h.wins}-{losses}
+                                  </span>
+                                </span>
+                              );
+                            })}
+                          </div>
+                        )}
                       </div>
                     ))}
                   </div>

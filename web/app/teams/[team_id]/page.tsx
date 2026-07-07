@@ -89,10 +89,18 @@ export interface PoolHero {
   wins: number;
   matches: DrillMatch[];
 }
+export interface OtherHero {
+  hero_id: number;
+  name: string;
+  img: string | null;
+  games: number;
+  wins: number;
+}
 export interface OtherPlayer {
   playerId: number | null;
   name: string;
   games: number; // # game player ini di posisi ini (scope filter)
+  heroes: OtherHero[]; // #Step3: hero yang standin ini pick (games desc) + W-L
 }
 export interface PosData {
   pos: number;
@@ -498,6 +506,24 @@ export default async function TeamPage({
   const gamesByAccount = new Map<number, number>();
   for (const r of teamMp) if (r.account_id != null) gamesByAccount.set(r.account_id, (gamesByAccount.get(r.account_id) ?? 0) + 1);
 
+  // #Step3: hero pool per account (buat detail standin di +N other) — games desc + W-L.
+  const heroesByAccount = new Map<number, Map<number, { name: string; img: string | null; games: number; wins: number }>>();
+  for (const r of teamMp) {
+    if (r.account_id == null) continue;
+    const hm = heroesByAccount.get(r.account_id) ?? new Map();
+    const h =
+      hm.get(r.hero_id) ??
+      { name: r.hero?.localized_name ?? String(r.hero_id), img: r.hero?.img ?? null, games: 0, wins: 0 };
+    h.games++;
+    if (r.win) h.wins++;
+    hm.set(r.hero_id, h);
+    heroesByAccount.set(r.account_id, hm);
+  }
+  const heroesOf = (acct: number): OtherHero[] =>
+    [...(heroesByAccount.get(acct)?.entries() ?? [])]
+      .map(([hero_id, v]) => ({ hero_id, name: v.name, img: v.img, games: v.games, wins: v.wins }))
+      .sort((a, b) => b.games - a.games);
+
   // position-pool: main kanonik + hero pool main (semua game-nya) + standin/other di pos itu.
   const positions: PosData[] = [1, 2, 3, 4, 5].map((pos) => {
     const main = mains.get(pos) ?? null;
@@ -535,7 +561,12 @@ export default async function TeamPage({
     // others = akun LAIN (bukan main) yang role kanoniknya = pos ini & PUNYA game di data (standin/sub).
     const others: OtherPlayer[] = [...gamesByAccount.entries()]
       .filter(([acct]) => acct !== mainAcct && canonPosOf(acct) === pos)
-      .map(([acct, games]) => ({ playerId: acct > 0 ? acct : null, name: nameByAccount.get(acct) ?? `Player ${acct}`, games }))
+      .map(([acct, games]) => ({
+        playerId: acct > 0 ? acct : null,
+        name: nameByAccount.get(acct) ?? `Player ${acct}`,
+        games,
+        heroes: heroesOf(acct),
+      }))
       .sort((a, b) => b.games - a.games);
 
     return {
