@@ -17,6 +17,8 @@
     "patches:local": "tsx --env-file=.env.local src/patches.ts",
     "stratz": "tsx src/stratz.ts",
     "stratz:local": "tsx --env-file=.env.local src/stratz.ts",
+    "roster": "tsx src/roster.ts",
+    "roster:local": "tsx --env-file=.env.local src/roster.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

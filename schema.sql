@@ -144,6 +144,22 @@ create table hero_role_dist (
 create unique index hero_role_dist_uq
   on hero_role_dist (hero_id, coalesce(patch_id, 0), role);
 
+-- Roster kanonik per (tim, player) — SUMBER: STRATZ proSteamAccount (position 1-5 + teamId).
+-- Bukan per-match (match_players.position tetap dipakai lane_result + drill). account_id SENGAJA
+-- TANPA FK ke players: roster superset (pemain utama bisa 0 game di data kita, mis. Malr1ne) →
+-- simpan name + raw_position dari STRATZ buat display + audit. is_active = proSteamAccount.teamId==team.
+create table team_player_roles (
+  team_id      bigint   not null references teams(team_id) on delete cascade,
+  account_id   bigint   not null,                 -- STRATZ steamAccountId (bisa belum ada di players)
+  name         text,                              -- STRATZ pro name (display fallback)
+  position     smallint,                          -- 1-5 (POSITION_n). null = UNKNOWN/non-pro
+  raw_position text,                              -- enum STRATZ mentah (audit: mastiin skala 1-5)
+  is_active    boolean  not null,                 -- roster aktif (true) vs standin/ex (false)
+  updated_at   timestamptz not null default now(),
+  primary key (team_id, account_id)
+);
+create index team_player_roles_team_idx on team_player_roles (team_id);
+
 -- Watermark incremental (mis. last_promatch_id)
 create table ingest_state (
   key         text primary key,
@@ -192,6 +208,7 @@ alter table tournament_hero_stats enable row level security;
 alter table team_hero_stats       enable row level security;
 alter table hero_pairs            enable row level security;
 alter table hero_role_dist        enable row level security;
+alter table team_player_roles     enable row level security;
 alter table ingest_state          enable row level security;
 
 create policy read_patches      on patches               for select using (true);
@@ -206,4 +223,5 @@ create policy read_thstats      on tournament_hero_stats for select using (true)
 create policy read_teamhstats   on team_hero_stats       for select using (true);
 create policy read_heropairs    on hero_pairs            for select using (true);
 create policy read_heroroles    on hero_role_dist        for select using (true);
+create policy read_roles        on team_player_roles     for select using (true);
 create policy read_ingest       on ingest_state          for select using (true);
