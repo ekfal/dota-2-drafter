@@ -44,8 +44,16 @@ interface MpRow {
   position: number | null;
   win: boolean | null;
   lane_result: number | null; // STRATZ: 1 won, 0 tie, -1 lost, null roam/no-lane
+  net_worth: number | null; // buat Method C fallback (core/support split)
+  lane_role: number | null; // 1 safe / 2 mid / 3 off / 4 jungle — Method C carry/off/mid
   player: { name: string | null } | null;
   hero: { localized_name: string | null; img: string | null } | null;
+}
+interface RoleRow {
+  account_id: number;
+  name: string | null;
+  position: number | null; // 1-5 STRATZ (null = unknown/non-pro)
+  is_active: boolean; // roster aktif vs standin
 }
 interface PbRow {
   match_id: number;
@@ -91,8 +99,10 @@ export interface PosData {
   label: string;
   playerId: number | null;
   playerName: string;
+  mainGames: number; // 0 = main ada di roster tapi belum ada game di data
+  source: "stratz" | "method_c"; // sumber role: roster kanonik STRATZ vs derivasi
   pool: PoolHero[];
-  others: OtherPlayer[]; // pemain lain (non-dominant) di posisi ini, games desc
+  others: OtherPlayer[]; // standin/pemain lain di posisi ini (kanonik), games desc
 }
 // duo-lane win-lane% (STRATZ lane_result, rep core: safe=pos1, mid=pos2, off=pos3)
 interface LaneAgg {
@@ -170,6 +180,20 @@ function wrColor(wins: number, games: number): string {
   const c = wrClass(wins, games);
   return c === "win" ? "wr-good" : c === "loss" ? "wr-bad" : "wr-mid";
 }
+function median(a: number[]): number {
+  if (a.length === 0) return 0;
+  const s = [...a].sort((x, y) => x - y);
+  const m = s.length >> 1;
+  return s.length % 2 ? s[m]! : (s[m - 1]! + s[m]!) / 2;
+}
+function modeOf(a: number[]): number | null {
+  const c = new Map<number, number>();
+  for (const x of a) c.set(x, (c.get(x) ?? 0) + 1);
+  let best: number | null = null;
+  let bn = -1;
+  for (const [k, n] of c) if (n > bn) ((bn = n), (best = k));
+  return best;
+}
 
 export default async function TeamPage({
   params,
@@ -190,7 +214,7 @@ export default async function TeamPage({
 
   const supabase = getServerSupabase();
 
-  const [teamRes, metaRes] = await Promise.all([
+  const [teamRes, metaRes, rolesRes] = await Promise.all([
     supabase.from("teams").select("name, rating, logo_url").eq("team_id", id).maybeSingle<{
       name: string | null;
       rating: number | null;
@@ -208,6 +232,12 @@ export default async function TeamPage({
       .or(`radiant_team_id.eq.${id},dire_team_id.eq.${id}`)
       .order("start_time", { ascending: false })
       .returns<MetaRow[]>(),
+    // Step 2: roster kanonik STRATZ (team_player_roles). Kosong → fallback Method C.
+    supabase
+      .from("team_player_roles")
+      .select("account_id, name, position, is_active")
+      .eq("team_id", id)
+      .returns<RoleRow[]>(),
   ]);
 
   const team = teamRes.data;
@@ -307,7 +337,7 @@ export default async function TeamPage({
       supabase
         .from("match_players")
         .select(
-          `match_id, account_id, hero_id, is_radiant, position, win, lane_result,
+          `match_id, account_id, hero_id, is_radiant, position, win, lane_result, net_worth, lane_role,
            player:players!match_players_account_id_fkey(name),
            hero:heroes!match_players_hero_id_fkey(localized_name, img)`
         )
@@ -377,36 +407,118 @@ export default async function TeamPage({
 
   const POS_LABEL = ["", "Pos 1 · Carry", "Pos 2 · Mid", "Pos 3 · Off", "Pos 4 · Soft sup", "Pos 5 · Hard sup"];
 
-  // position-pool: per pos → dominant player + hero pool (games desc) + drill-down per hero
-  const positions: PosData[] = [1, 2, 3, 4, 5].map((pos) => {
-    const rows = teamMp.filter((r) => r.position === pos);
-    const byPlayer = new Map<number, { name: string; games: number }>();
-    for (const r of rows) {
-      const key = r.account_id ?? -1;
-      const cur =
-        byPlayer.get(key) ??
-        { name: r.player?.name ?? (r.account_id ? `Player ${r.account_id}` : "Unknown"), games: 0 };
-      cur.games++;
-      byPlayer.set(key, cur);
-    }
-    let domId = -1;
-    let domGames = -1;
-    let domName = "—";
-    for (const [k, v] of byPlayer) if (v.games > domGames) ((domGames = v.games), (domId = k), (domName = v.name));
+  // Step 2: role KANONIK per (tim, player) dari team_player_roles (STRATZ). Group pool by role kanonik,
+  // BUKAN per-match position (yang flip antar game). match_players.position tetap dipakai lane_result/drill.
+  const rolesData = rolesRes.data ?? [];
+  const activeMain = new Map<number, { account_id: number; name: string }>(); // pos → main (roster aktif)
+  const roleByAccount = new Map<number, number>(); // account_id → pos kanonik (aktif + standin, dari STRATZ)
+  const nameByAccount = new Map<number, string>();
+  for (const r of rolesData) {
+    if (r.name) nameByAccount.set(r.account_id, r.name);
+    if (r.position == null) continue;
+    roleByAccount.set(r.account_id, r.position);
+    if (r.is_active && !activeMain.has(r.position))
+      activeMain.set(r.position, { account_id: r.account_id, name: r.name ?? `Player ${r.account_id}` });
+  }
+  // nama dari data match (fallback kalau roster gak punya nama / player non-roster)
+  for (const r of teamMp) if (r.account_id != null && r.player?.name) nameByAccount.set(r.account_id, r.player.name);
 
-    const poolRows = rows.filter((r) => (r.account_id ?? -1) === domId);
+  const hasCanonical = activeMain.size > 0;
+  const rosterSource: "stratz" | "method_c" = hasCanonical ? "stratz" : "method_c";
+
+  // FALLBACK Method C (tim tanpa roster STRATZ aktif): core/support by median NW, mid/carry/off by lane_role.
+  const mcMain = new Map<number, { account_id: number; name: string }>();
+  const mcRoleByAccount = new Map<number, number>();
+  if (!hasCanonical) {
+    const agg = new Map<number, { games: number; nws: number[]; lrs: number[] }>();
+    for (const r of teamMp) {
+      if (r.account_id == null) continue;
+      const v = agg.get(r.account_id) ?? { games: 0, nws: [], lrs: [] };
+      v.games++;
+      if (r.net_worth != null) v.nws.push(r.net_worth);
+      if (r.lane_role != null) v.lrs.push(r.lane_role);
+      agg.set(r.account_id, v);
+    }
+    const roster = [...agg.entries()]
+      .map(([acct, v]) => ({ acct, games: v.games, mnw: median(v.nws), lrMode: modeOf(v.lrs) }))
+      .sort((a, b) => b.games - a.games)
+      .slice(0, 5);
+    if (roster.length > 0) {
+      const byNw = [...roster].sort((a, b) => b.mnw - a.mnw);
+      const cores = byNw.slice(0, 3);
+      const sups = byNw.slice(3, 5);
+      const mid = cores.find((p) => p.lrMode === 2) ?? [...cores].sort((a, b) => b.mnw - a.mnw)[1]!;
+      const coreRest = cores.filter((p) => p !== mid);
+      let carry = coreRest.find((p) => p.lrMode === 1);
+      let off = coreRest.find((p) => p.lrMode === 3);
+      if (!carry || !off || carry === off) {
+        const s = [...coreRest].sort((a, b) => b.mnw - a.mnw);
+        carry = s[0];
+        off = s[1];
+      }
+      const supSorted = [...sups].sort((a, b) => b.mnw - a.mnw);
+      const pairs: [number, { acct: number } | undefined][] = [
+        [1, carry],
+        [2, mid],
+        [3, off],
+        [4, supSorted[0]],
+        [5, supSorted[1]],
+      ];
+      for (const [pos, p] of pairs) {
+        if (!p) continue;
+        mcMain.set(pos, { account_id: p.acct, name: nameByAccount.get(p.acct) ?? `Player ${p.acct}` });
+        mcRoleByAccount.set(p.acct, pos);
+      }
+    }
+  }
+
+  const mains = hasCanonical ? activeMain : mcMain;
+  const roleMap = hasCanonical ? roleByAccount : mcRoleByAccount;
+
+  // player non-roster (gak dikenal STRATZ / Method C) → pos kanonik = MODE per-match position mereka.
+  const posModeByAccount = new Map<number, number>();
+  {
+    const cnt = new Map<number, Map<number, number>>();
+    for (const r of teamMp) {
+      if (r.account_id == null || r.position == null) continue;
+      const m = cnt.get(r.account_id) ?? new Map<number, number>();
+      m.set(r.position, (m.get(r.position) ?? 0) + 1);
+      cnt.set(r.account_id, m);
+    }
+    for (const [acct, m] of cnt) {
+      let best = -1;
+      let bp = 0;
+      for (const [p, c] of m) if (c > best) ((best = c), (bp = p));
+      posModeByAccount.set(acct, bp);
+    }
+  }
+  const canonPosOf = (acct: number): number | null => roleMap.get(acct) ?? posModeByAccount.get(acct) ?? null;
+
+  // total game per account (buat +N others)
+  const gamesByAccount = new Map<number, number>();
+  for (const r of teamMp) if (r.account_id != null) gamesByAccount.set(r.account_id, (gamesByAccount.get(r.account_id) ?? 0) + 1);
+
+  // position-pool: main kanonik + hero pool main (semua game-nya) + standin/other di pos itu.
+  const positions: PosData[] = [1, 2, 3, 4, 5].map((pos) => {
+    const main = mains.get(pos) ?? null;
+    const mainAcct = main?.account_id ?? null;
+
+    // pool = semua game main ini (role tetap, gak difilter per-match position).
     const heroMap = new Map<
       number,
       { name: string; img: string | null; games: number; wins: number; matchIds: number[] }
     >();
-    for (const r of poolRows) {
-      const h =
-        heroMap.get(r.hero_id) ??
-        { name: r.hero?.localized_name ?? String(r.hero_id), img: r.hero?.img ?? null, games: 0, wins: 0, matchIds: [] };
-      h.games++;
-      if (r.win) h.wins++;
-      h.matchIds.push(r.match_id);
-      heroMap.set(r.hero_id, h);
+    if (mainAcct != null) {
+      for (const r of teamMp) {
+        if (r.account_id !== mainAcct) continue;
+        const h =
+          heroMap.get(r.hero_id) ??
+          { name: r.hero?.localized_name ?? String(r.hero_id), img: r.hero?.img ?? null, games: 0, wins: 0, matchIds: [] };
+        h.games++;
+        if (r.win) h.wins++;
+        h.matchIds.push(r.match_id);
+        heroMap.set(r.hero_id, h);
+      }
     }
     const pool: PoolHero[] = [...heroMap.entries()]
       .map(([hero_id, v]) => ({
@@ -418,18 +530,21 @@ export default async function TeamPage({
         matches: buildDrill(hero_id, v.matchIds),
       }))
       .sort((a, b) => b.games - a.games);
+    const mainGames = pool.reduce((s, h) => s + h.games, 0);
 
-    // FIX-C: pemain lain di posisi ini (non-dominant) + jumlah game, games desc.
-    const others: OtherPlayer[] = [...byPlayer.entries()]
-      .filter(([k]) => k !== domId)
-      .map(([k, v]) => ({ playerId: k > 0 ? k : null, name: v.name, games: v.games }))
+    // others = akun LAIN (bukan main) yang role kanoniknya = pos ini & PUNYA game di data (standin/sub).
+    const others: OtherPlayer[] = [...gamesByAccount.entries()]
+      .filter(([acct]) => acct !== mainAcct && canonPosOf(acct) === pos)
+      .map(([acct, games]) => ({ playerId: acct > 0 ? acct : null, name: nameByAccount.get(acct) ?? `Player ${acct}`, games }))
       .sort((a, b) => b.games - a.games);
 
     return {
       pos,
       label: POS_LABEL[pos]!,
-      playerId: domId > 0 ? domId : null,
-      playerName: domName,
+      playerId: mainAcct && mainAcct > 0 ? mainAcct : null,
+      playerName: main?.name ?? "—",
+      mainGames,
+      source: rosterSource,
       pool,
       others,
     };
@@ -704,10 +819,16 @@ export default async function TeamPage({
       />
 
       {/* position-pool + hero drill-down (client accordion) */}
-      <div className="h2">Hero pool by position</div>
+      <div className="h2">
+        Hero pool by position{" "}
+        <span className="dim" style={{ fontSize: 12, fontWeight: 400 }}>
+          · role {rosterSource === "stratz" ? "roster STRATZ" : "derived (Method C)"}
+        </span>
+      </div>
       <PoolAccordion positions={positions} />
       <div className="dim" style={{ fontSize: 12, marginTop: 6 }}>
-        Klik portrait hero → lihat match tim ini pick hero itu (scope filter ini).
+        Role kanonik per pemain{rosterSource === "stratz" ? " (roster aktif STRATZ)" : " (derivasi net-worth + lane_role — tim ini belum ada di roster STRATZ)"}.
+        Klik portrait hero → match tim pick hero itu (scope filter). Standin/sub ada di “+N other player”.
       </div>
 
       {/* #2 role-duo pairing (GAME winrate) */}
