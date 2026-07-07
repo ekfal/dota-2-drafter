@@ -13,12 +13,13 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body>
         <nav className="app-nav">
           <div className="inner">
-            <Link href="/teams" className="brand">
+            <Link href="/" className="brand">
               Draft Helper
             </Link>
+            <Link href="/">Home</Link>
             <Link href="/teams">Teams</Link>
             <Link href="/tournaments">Tournaments</Link>
-            <Link href="/matches">Matches</Link>
+            <Link href="/patches">Patches</Link>
           </div>
         </nav>
         {children}

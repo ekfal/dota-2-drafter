@@ -354,6 +354,179 @@ button.pos-others-toggle.open {
   margin-bottom: 14px;
 }
 
+/* ---------- #1 HOME ---------- */
+.home-hero {
+  text-align: center;
+  padding: 36px 0 24px;
+}
+.home-title {
+  font-size: 30px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+.home-tag {
+  font-size: 14px;
+  margin: 6px 0 18px;
+}
+.home-search {
+  position: relative;
+  max-width: 480px;
+  margin: 0 auto;
+}
+.home-search-input {
+  max-width: 480px;
+  margin: 0 auto;
+  padding: 10px 14px;
+  font-size: 15px;
+}
+.home-search-results {
+  position: absolute;
+  z-index: 20;
+  left: 0;
+  right: 0;
+  margin-top: 4px;
+  text-align: left;
+  padding: 8px;
+  max-height: 60vh;
+  overflow-y: auto;
+}
+.hsr-group + .hsr-group {
+  margin-top: 8px;
+  border-top: 1px solid var(--border);
+  padding-top: 8px;
+}
+.hsr-group .label {
+  padding: 2px 6px;
+}
+.hsr-row {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 6px;
+  border-radius: 6px;
+  color: var(--text);
+}
+.hsr-row:hover {
+  background: var(--surface-2);
+  text-decoration: none;
+}
+.hsr-logo,
+.hsr-hero {
+  border-radius: 3px;
+  object-fit: cover;
+}
+.hsr-logo-fb {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  font-size: 9px;
+  background: var(--surface-2);
+  border-radius: 3px;
+  color: var(--text-muted);
+}
+.hsr-name {
+  flex: 1;
+}
+.hsr-sub {
+  font-size: 12px;
+}
+.home-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  margin-top: 12px;
+}
+.home-block {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 14px 16px;
+}
+.home-block-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+.home-block-head h2 {
+  font-size: 15px;
+  font-weight: 600;
+}
+.home-block-head .dim {
+  font-size: 12px;
+}
+.elo-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.elo-card {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 6px;
+  border-radius: 6px;
+  color: var(--text);
+}
+.elo-card:hover {
+  background: var(--surface-2);
+  text-decoration: none;
+}
+.elo-rank {
+  width: 16px;
+  font-size: 12px;
+  text-align: right;
+}
+.elo-logo {
+  border-radius: 4px;
+  object-fit: cover;
+}
+.elo-logo-fb {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  font-size: 10px;
+  background: var(--surface-2);
+  border-radius: 4px;
+  color: var(--text-muted);
+}
+.elo-name {
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.elo-rating {
+  font-weight: 600;
+  font-size: 13px;
+}
+.link-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+.link-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px;
+  border-radius: 6px;
+  color: var(--text);
+}
+.link-row:hover {
+  background: var(--surface-2);
+  text-decoration: none;
+}
+@media (max-width: 780px) {
+  .home-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
 /* portrait tile (button, klik = drill-down) */
 .portrait {
   display: block;
