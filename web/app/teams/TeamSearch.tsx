@@ -2,24 +2,17 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
+import type { TeamCard } from "./page";
 
-// FR-2 chunk1: entry point /teams — search by nama/tag (client-side, list kecil).
-interface TeamRow {
-  team_id: number;
-  name: string | null;
-  tag: string | null;
-  matches: number;
-}
-
-export default function TeamSearch({ teams }: { teams: TeamRow[] }) {
+// FR-2 entry /teams — grid kartu (logo + nama + rekor W-L) + search by nama/tag.
+export default function TeamSearch({ teams }: { teams: TeamCard[] }) {
   const [q, setQ] = useState("");
 
   const filtered = useMemo(() => {
     const s = q.trim().toLowerCase();
     if (!s) return teams;
     return teams.filter(
-      (t) =>
-        (t.name ?? "").toLowerCase().includes(s) || (t.tag ?? "").toLowerCase().includes(s)
+      (t) => (t.name ?? "").toLowerCase().includes(s) || (t.tag ?? "").toLowerCase().includes(s)
     );
   }, [q, teams]);
 
@@ -36,26 +29,28 @@ export default function TeamSearch({ teams }: { teams: TeamRow[] }) {
       {filtered.length === 0 ? (
         <p className="dim">Tidak ada team cocok “{q}”.</p>
       ) : (
-        <table className="data-table">
-          <thead>
-            <tr>
-              <th>Team</th>
-              <th>Tag</th>
-              <th className="num">Matches</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filtered.map((t) => (
-              <tr key={t.team_id}>
-                <td>
-                  <Link href={`/teams/${t.team_id}`}>{t.name ?? `Team ${t.team_id}`}</Link>
-                </td>
-                <td className="dim">{t.tag ?? "—"}</td>
-                <td className="num">{t.matches}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        <div className="team-grid">
+          {filtered.map((t) => {
+            const initials = (t.name ?? "T").slice(0, 2).toUpperCase();
+            return (
+              <Link key={t.team_id} href={`/teams/${t.team_id}`} className="team-card">
+                {t.logo_url ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img className="team-card-logo" src={t.logo_url} alt="" width={40} height={40} />
+                ) : (
+                  <span className="team-card-logo-fb">{initials}</span>
+                )}
+                <span className="team-card-body">
+                  <span className="team-card-name">{t.name ?? `Team ${t.team_id}`}</span>
+                  <span className="team-card-rec">
+                    <span className="wr-good">{t.wins}W</span>–<span className="wr-bad">{t.losses}L</span>
+                    <span className="dim"> · {t.matches}g</span>
+                  </span>
+                </span>
+              </Link>
+            );
+          })}
+        </div>
       )}
     </>
   );

@@ -1,37 +1,69 @@
 import Link from "next/link";
 import { getServerSupabase } from "@/lib/supabase";
 
-// FR-1 entry: list turnamen yang punya data agregat. Anon read-only.
+// FR-1 entry: list turnamen (nama + tanggal + jumlah match). Tanggal di-derive dari matches
+// (leagues tak simpan tanggal). Cuma league yang PUNYA match → no dead-end. Anon read-only.
 export const dynamic = "force-dynamic";
 
-interface LeagueRow {
+interface Row {
   league_id: number;
   name: string | null;
+  matches: number;
+  first: number; // epoch match paling awal
+  last: number; // epoch match paling akhir
+}
+
+function fmtDate(epoch: number): string {
+  if (!epoch) return "—";
+  return new Date(epoch * 1000).toISOString().slice(0, 10);
 }
 
 export default async function TournamentsPage() {
-  let leagues: LeagueRow[] = [];
+  let rows: Row[] = [];
   let error: { message: string } | null = null;
 
   try {
     const supabase = getServerSupabase();
-    // League yang punya baris di tournament_hero_stats (ada data agregat).
-    const statRes = await supabase
-      .from("tournament_hero_stats")
-      .select("league_id")
-      .returns<{ league_id: number }[]>();
-    if (statRes.error) throw new Error(statRes.error.message);
-    const ids = [...new Set((statRes.data ?? []).map((r) => r.league_id))];
+    const mRes = await supabase
+      .from("matches")
+      .select("league_id, start_time")
+      .returns<{ league_id: number | null; start_time: number | null }[]>();
+    if (mRes.error) throw new Error(mRes.error.message);
+
+    const agg = new Map<number, { matches: number; first: number; last: number }>();
+    for (const m of mRes.data ?? []) {
+      if (!m.league_id) continue;
+      const a = agg.get(m.league_id) ?? { matches: 0, first: Infinity, last: 0 };
+      a.matches++;
+      const st = m.start_time ?? 0;
+      if (st) {
+        if (st < a.first) a.first = st;
+        if (st > a.last) a.last = st;
+      }
+      agg.set(m.league_id, a);
+    }
+    const ids = [...agg.keys()];
 
     if (ids.length > 0) {
       const lRes = await supabase
         .from("leagues")
         .select("league_id, name")
         .in("league_id", ids)
-        .order("name")
-        .returns<LeagueRow[]>();
+        .returns<{ league_id: number; name: string | null }[]>();
       if (lRes.error) throw new Error(lRes.error.message);
-      leagues = lRes.data ?? [];
+      const nameById = new Map((lRes.data ?? []).map((l) => [l.league_id, l.name]));
+      rows = ids
+        .map((id) => {
+          const a = agg.get(id)!;
+          return {
+            league_id: id,
+            name: nameById.get(id) ?? `League ${id}`,
+            matches: a.matches,
+            first: a.first === Infinity ? 0 : a.first,
+            last: a.last,
+          };
+        })
+        .sort((a, b) => b.last - a.last); // turnamen terbaru dulu
     }
   } catch (e) {
     error = { message: e instanceof Error ? e.message : String(e) };
@@ -41,28 +73,33 @@ export default async function TournamentsPage() {
     <main className="container">
       <section className="section-eyebrow">
         <h1>Tournaments</h1>
-        <div className="sub">Agregat pick / ban / contest per turnamen.</div>
+        <div className="sub">Turnamen dengan match di DB, terbaru dulu.</div>
       </section>
 
       {error ? (
         <p>Gagal baca data: {error.message}</p>
-      ) : leagues.length === 0 ? (
-        <p>Belum ada agregat. Jalankan job aggregate dulu.</p>
+      ) : rows.length === 0 ? (
+        <p>Belum ada turnamen. Jalankan job ingest dulu.</p>
       ) : (
         <table className="data-table">
           <thead>
             <tr>
-              <th>League</th>
-              <th className="num">ID</th>
+              <th>Tournament</th>
+              <th>Tanggal</th>
+              <th className="num">Matches</th>
             </tr>
           </thead>
           <tbody>
-            {leagues.map((l) => (
-              <tr key={l.league_id}>
+            {rows.map((r) => (
+              <tr key={r.league_id}>
                 <td>
-                  <Link href={`/tournaments/${l.league_id}`}>{l.name ?? `League ${l.league_id}`}</Link>
+                  <Link href={`/tournaments/${r.league_id}`}>{r.name}</Link>
                 </td>
-                <td className="num">{l.league_id}</td>
+                <td className="dim">
+                  {r.first ? fmtDate(r.first) : "—"}
+                  {r.last && r.last !== r.first ? ` – ${fmtDate(r.last)}` : ""}
+                </td>
+                <td className="num">{r.matches}</td>
               </tr>
             ))}
           </tbody>
