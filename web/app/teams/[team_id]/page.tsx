@@ -849,8 +849,10 @@ export default async function TeamPage({
   const logo = team?.logo_url;
   const scopeLabel = selectedLeague !== null ? leagueMap.get(selectedLeague) : "All tournaments (this patch)";
 
+  const selectedPatchName = patchMap.get(selectedPatch)?.name ?? null;
+
   return (
-    <main className="container">
+    <main className="container" id="pdf-region">
       {/* team-header */}
       <div className="team-header">
         {logo ? (
@@ -867,16 +869,18 @@ export default async function TeamPage({
           </div>
         </div>
         <div className="spacer" />
-        <PrintButton />
+        <PrintButton teamName={teamName} patchName={selectedPatchName} />
       </div>
 
-      <Filters
-        teamId={id}
-        patches={patches.map((p) => ({ id: p.id, name: p.name }))}
-        leagues={leagues}
-        selectedPatch={selectedPatch}
-        selectedLeague={selectedLeague}
-      />
+      <div className="no-pdf">
+        <Filters
+          teamId={id}
+          patches={patches.map((p) => ({ id: p.id, name: p.name }))}
+          leagues={leagues}
+          selectedPatch={selectedPatch}
+          selectedLeague={selectedLeague}
+        />
+      </div>
 
       {/* #3 Last 10 matches (ikut filter) */}
       <div className="h2">Last 10 matches</div>

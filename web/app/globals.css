@@ -621,6 +621,21 @@ button.pos-others-toggle.open {
   font-variant-numeric: tabular-nums;
 }
 
+/* PDF export: override dark → light/putih sebelum capture (hemat tinta). Winrate --win/--loss tetap. */
+.pdf-light {
+  --bg: #ffffff;
+  --surface: #ffffff;
+  --surface-2: #f1f4f8;
+  --border: #d6dce4;
+  --border-strong: #bcc5d1;
+  --text: #171b22;
+  --text-muted: #4a5563;
+  --text-dim: #6b7280;
+  --accent: #1667d0;
+  background: #ffffff !important;
+  color: #171b22 !important;
+}
+
 .patch-leagues {
   display: inline-flex;
   flex-wrap: wrap;
