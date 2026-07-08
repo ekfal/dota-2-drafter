@@ -171,7 +171,12 @@ export default function PoolAccordion({ positions }: { positions: PosData[] }) {
                 <div className="pos-tag">{row.label}</div>
                 <div className="pos-player">
                   {row.playerId ? <Link href={`/players/${row.playerId}`}>{row.playerName}</Link> : row.playerName}
-                  {row.mainGames === 0 && row.playerName !== "—" ? (
+                  {row.isStandinRow ? (
+                    <span className="dim pos-standin-note" style={{ fontWeight: 400 }}>
+                      {" "}· standin
+                      {row.canonicalMainName ? ` · main resmi ${row.canonicalMainName} belum ada game di data` : ""}
+                    </span>
+                  ) : row.mainGames === 0 && row.playerName !== "—" ? (
                     <span className="dim" style={{ fontWeight: 400 }}> · belum ada game</span>
                   ) : null}
                 </div>
@@ -231,11 +236,7 @@ export default function PoolAccordion({ positions }: { positions: PosData[] }) {
               <div className="pool">
                 {row.pool.length === 0 ? (
                   <span className="pool-empty">
-                    {row.playerName !== "—"
-                      ? row.others.length > 0
-                        ? "Belum ada game main di data — cek +N other player"
-                        : "Belum ada game di data"
-                      : "No data"}
+                    {row.playerName !== "—" ? "Belum ada game di data" : "No data"}
                   </span>
                 ) : (
                   row.pool.map((h) => {

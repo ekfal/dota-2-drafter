@@ -105,12 +105,14 @@ export interface OtherPlayer {
 export interface PosData {
   pos: number;
   label: string;
-  playerId: number | null;
+  playerId: number | null; // pemain yang DITAMPILKAN (main resmi, atau standin kalau main 0 game)
   playerName: string;
-  mainGames: number; // 0 = main ada di roster tapi belum ada game di data
+  mainGames: number; // game pemain yang ditampilkan
   source: "stratz" | "method_c"; // sumber role: roster kanonik STRATZ vs derivasi
+  isStandinRow: boolean; // true = baris utama ini standin (main resmi 0 game)
+  canonicalMainName: string | null; // nama main resmi roster (buat label kalau 0 game / di-standin-in)
   pool: PoolHero[];
-  others: OtherPlayer[]; // standin/pemain lain di posisi ini (kanonik), games desc
+  others: OtherPlayer[]; // standin/pemain lain SISANYA, games desc
 }
 // duo-lane win-lane% (STRATZ lane_result, rep core: safe=pos1, mid=pos2, off=pos3)
 interface LaneAgg {
@@ -528,29 +530,24 @@ export default async function TeamPage({
       .map(([hero_id, v]) => ({ hero_id, name: v.name, img: v.img, games: v.games, wins: v.wins }))
       .sort((a, b) => b.games - a.games);
 
-  // position-pool: main kanonik + hero pool main (semua game-nya) + standin/other di pos itu.
-  const positions: PosData[] = [1, 2, 3, 4, 5].map((pos) => {
-    const main = mains.get(pos) ?? null;
-    const mainAcct = main?.account_id ?? null;
-
-    // pool = semua game main ini (role tetap, gak difilter per-match position).
+  // hero pool (PoolHero[] + drill) untuk 1 account — semua game-nya (role tetap, gak filter per-match pos).
+  function poolFor(acct: number | null): PoolHero[] {
+    if (acct == null) return [];
     const heroMap = new Map<
       number,
       { name: string; img: string | null; games: number; wins: number; matchIds: number[] }
     >();
-    if (mainAcct != null) {
-      for (const r of teamMp) {
-        if (r.account_id !== mainAcct) continue;
-        const h =
-          heroMap.get(r.hero_id) ??
-          { name: r.hero?.localized_name ?? String(r.hero_id), img: r.hero?.img ?? null, games: 0, wins: 0, matchIds: [] };
-        h.games++;
-        if (r.win) h.wins++;
-        h.matchIds.push(r.match_id);
-        heroMap.set(r.hero_id, h);
-      }
+    for (const r of teamMp) {
+      if (r.account_id !== acct) continue;
+      const h =
+        heroMap.get(r.hero_id) ??
+        { name: r.hero?.localized_name ?? String(r.hero_id), img: r.hero?.img ?? null, games: 0, wins: 0, matchIds: [] };
+      h.games++;
+      if (r.win) h.wins++;
+      h.matchIds.push(r.match_id);
+      heroMap.set(r.hero_id, h);
     }
-    const pool: PoolHero[] = [...heroMap.entries()]
+    return [...heroMap.entries()]
       .map(([hero_id, v]) => ({
         hero_id,
         name: v.name,
@@ -560,26 +557,54 @@ export default async function TeamPage({
         matches: buildDrill(hero_id, v.matchIds),
       }))
       .sort((a, b) => b.games - a.games);
+  }
+
+  // position-pool: main kanonik. FIX-2: kalau main resmi 0 game TAPI ada standin berdata → promote
+  // standin (games terbanyak) jadi baris utama (pool + W-L-nya), main resmi tetap disebut di label.
+  const positions: PosData[] = [1, 2, 3, 4, 5].map((pos) => {
+    const main = mains.get(pos) ?? null;
+    const mainAcct = main?.account_id ?? null;
+    const canonicalMainName = main?.name ?? null;
+
+    // semua akun lain di pos ini (kanonik) yang punya game, games desc.
+    const otherAccts = [...gamesByAccount.entries()]
+      .filter(([acct]) => acct !== mainAcct && canonPosOf(acct) === pos)
+      .sort((a, b) => b[1] - a[1])
+      .map(([acct]) => acct);
+
+    const mainGamesRaw = mainAcct != null ? gamesByAccount.get(mainAcct) ?? 0 : 0;
+
+    // pilih siapa yang jadi BARIS UTAMA
+    let displayAcct = mainAcct;
+    let displayName = main?.name ?? "—";
+    let isStandinRow = false;
+    let restAccts = otherAccts;
+    if (mainGamesRaw === 0 && otherAccts.length > 0) {
+      displayAcct = otherAccts[0]!; // standin dengan game terbanyak
+      displayName = nameByAccount.get(displayAcct) ?? `Player ${displayAcct}`;
+      isStandinRow = true;
+      restAccts = otherAccts.slice(1);
+    }
+
+    const pool = poolFor(displayAcct);
     const mainGames = pool.reduce((s, h) => s + h.games, 0);
 
-    // others = akun LAIN (bukan main) yang role kanoniknya = pos ini & PUNYA game di data (standin/sub).
-    const others: OtherPlayer[] = [...gamesByAccount.entries()]
-      .filter(([acct]) => acct !== mainAcct && canonPosOf(acct) === pos)
-      .map(([acct, games]) => ({
-        playerId: acct > 0 ? acct : null,
-        name: nameByAccount.get(acct) ?? `Player ${acct}`,
-        games,
-        heroes: heroesOf(acct),
-      }))
-      .sort((a, b) => b.games - a.games);
+    const others: OtherPlayer[] = restAccts.map((acct) => ({
+      playerId: acct > 0 ? acct : null,
+      name: nameByAccount.get(acct) ?? `Player ${acct}`,
+      games: gamesByAccount.get(acct) ?? 0,
+      heroes: heroesOf(acct),
+    }));
 
     return {
       pos,
       label: POS_LABEL[pos]!,
-      playerId: mainAcct && mainAcct > 0 ? mainAcct : null,
-      playerName: main?.name ?? "—",
+      playerId: displayAcct && displayAcct > 0 ? displayAcct : null,
+      playerName: displayName,
       mainGames,
       source: rosterSource,
+      isStandinRow,
+      canonicalMainName,
       pool,
       others,
     };

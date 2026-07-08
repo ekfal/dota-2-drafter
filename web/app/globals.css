@@ -249,6 +249,8 @@ button.pos-others-toggle.open {
   display: flex;
   flex-direction: column;
   gap: 2px;
+  max-height: 340px;
+  overflow-y: auto;
 }
 .pos-other {
   display: flex;
