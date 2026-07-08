@@ -49,13 +49,12 @@ export default function CondPickBan({ picks }: { picks: CondPick[] }) {
       {/* kanan: co-ban hero terpilih — urut lift desc */}
       <div className="cpb-panel">
         <div className="cpb-panel-head">
-          When picked <b>{active.name}</b> <span className="dim">({active.pickCount} game)</span>
+          When picked <b>{active.name}</b> <span className="dim">({active.pickCount}g)</span>
           {active.reliable ? null : (
-            <span className="cpb-badge" title="pick sample kecil (n<8) — anggap indikasi awal, bukan sinyal kuat">
-              indikatif · sample kecil
+            <span className="cpb-flag" title="Pick sample kecil (n<8) — anggap indikasi awal, bukan sinyal kuat">
+              n&lt;8
             </span>
-          )}{" "}
-          → bans by lift:
+          )}
         </div>
         {active.cobans.length === 0 ? (
           <div className="dim">No bans recorded in these matches.</div>
@@ -64,14 +63,12 @@ export default function CondPickBan({ picks }: { picks: CondPick[] }) {
             {active.cobans.map((b) => {
               const meta = b.lift < 1.2; // lift ~1 = meta-ban, redam
               return (
-                <div key={b.hero_id} className="cpb-ban" style={meta ? { opacity: 0.55 } : undefined}>
+                <div key={b.hero_id} className="cpb-ban" style={meta ? { opacity: 0.5 } : undefined}>
                   <Thumb img={b.img} name={b.name} />
                   <span className="cpb-ban-name">{b.name}</span>
                   <span className="cpb-ban-count">
-                    <b className={b.lift >= 2 ? "wr-good" : undefined}>{b.lift.toFixed(1)}×</b>{" "}
-                    <span className="dim">
-                      {b.co}/{active.pickCount} · {b.confidence}%
-                    </span>
+                    <b className={`cpb-lift ${b.lift >= 2 ? "wr-good" : ""}`}>{b.lift.toFixed(1)}×</b>
+                    <span className="dim cpb-co">{b.co}/{active.pickCount}</span>
                   </span>
                 </div>
               );

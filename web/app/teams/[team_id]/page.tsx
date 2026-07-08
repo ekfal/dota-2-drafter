@@ -425,14 +425,19 @@ export default async function TeamPage({
   // BUKAN per-match position (yang flip antar game). match_players.position tetap dipakai lane_result/drill.
   const rolesData = rolesRes.data ?? [];
   const activeMain = new Map<number, { account_id: number; name: string }>(); // pos → main (roster aktif)
-  const roleByAccount = new Map<number, number>(); // account_id → pos kanonik (aktif + standin, dari STRATZ)
+  // roleByAccount HANYA roster AKTIF. Standin SENGAJA tak dimasukin: role global STRATZ-nya (mis. jikroy
+  // = pos5 global) ≠ posisi yang dia ISI pas standin (jikroy main carry/pos1). Standin di-klasifikasi
+  // via posisi yang BENERAN dimainin (posModeByAccount) di bawah, bukan role global.
+  const roleByAccount = new Map<number, number>(); // account_id → pos kanonik (AKTIF saja)
   const nameByAccount = new Map<number, string>();
   for (const r of rolesData) {
     if (r.name) nameByAccount.set(r.account_id, r.name);
     if (r.position == null) continue;
-    roleByAccount.set(r.account_id, r.position);
-    if (r.is_active && !activeMain.has(r.position))
-      activeMain.set(r.position, { account_id: r.account_id, name: r.name ?? `Player ${r.account_id}` });
+    if (r.is_active) {
+      roleByAccount.set(r.account_id, r.position);
+      if (!activeMain.has(r.position))
+        activeMain.set(r.position, { account_id: r.account_id, name: r.name ?? `Player ${r.account_id}` });
+    }
   }
   // nama dari data match (fallback kalau roster gak punya nama / player non-roster)
   for (const r of teamMp) if (r.account_id != null && r.player?.name) nameByAccount.set(r.account_id, r.player.name);
@@ -961,15 +966,15 @@ export default async function TeamPage({
       {/* #3 conditional pick → ban — FIX-A: lift, all-time team-wide */}
       <div className="h2">
         Conditional pick → ban{" "}
-        <span className="dim" style={{ fontSize: 12, fontWeight: 400 }}>· all-time, team-wide</span>
+        <span className="dim" style={{ fontSize: 12, fontWeight: 400 }}>· all-time, team-wide</span>{" "}
+        <span
+          className="cpb-help"
+          title={`Lift = frekuensi tim ban Y saat pick X ÷ baseline ban Y. >1 = ban spesifik (bukan meta), urut lift desc. Angka: lift× dan count (co/pick). Pool ${condM} match lintas patch (di luar filter di atas). Tampil pick ≥${COND_PICK_GATE}; reliable ≥${COND_RELIABLE_PX}, di bawah = indikatif (n<8, diredam). co ≥${COND_CO_GATE}.`}
+        >
+          ?
+        </span>
       </div>
       <CondPickBan picks={condPicks} />
-      <div className="dim" style={{ fontSize: 12, marginTop: 6 }}>
-        Lift = seberapa sering tim ban hero Y saat pick X vs baseline ban Y. Lift &gt;1 = ban spesifik (bukan
-        meta). Pool: {condM} match tim <b>lintas patch — di luar filter di atas</b>. Tampil pick X ≥
-        {COND_PICK_GATE}; pick X ≥{COND_RELIABLE_PX} = reliable, {COND_PICK_GATE}–{COND_RELIABLE_PX - 1} =
-        indikatif (di-redam). co ≥{COND_CO_GATE}.
-      </div>
 
       {/* duo-lane win-lane% (STRATZ) */}
       <div className="h2">Lane winrate (STRATZ)</div>

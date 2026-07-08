@@ -1080,6 +1080,37 @@ button.pos-others-toggle.open {
   border: 1px solid var(--border);
   vertical-align: middle;
 }
+/* FIX2: small "?" help + tiny n<8 flag (redup, no wall of text) */
+.cpb-help {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 15px;
+  height: 15px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-muted);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  cursor: help;
+  vertical-align: middle;
+}
+.cpb-flag {
+  margin-left: 6px;
+  font-size: 10px;
+  color: var(--text-dim);
+  cursor: help;
+  vertical-align: middle;
+}
+.cpb-lift {
+  font-variant-numeric: tabular-nums;
+}
+.cpb-co {
+  margin-left: 6px;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
 .cpb-img {
   object-fit: cover;
   border-radius: 3px;
