@@ -188,6 +188,10 @@ function wrColor(wins: number, games: number): string {
   const c = wrClass(wins, games);
   return c === "win" ? "wr-good" : c === "loss" ? "wr-bad" : "wr-mid";
 }
+function fmtDate(epoch: number | null | undefined): string {
+  if (!epoch) return "—";
+  return new Date(epoch * 1000).toISOString().slice(0, 10);
+}
 function median(a: number[]): number {
   if (a.length === 0) return 0;
   const s = [...a].sort((x, y) => x - y);
@@ -816,6 +820,31 @@ export default async function TeamPage({
     .sort((a, b) => b.bans - a.bans)
     .slice(0, 15);
 
+  // #3 Last 10 matches (ikut filter, terbaru dulu): vs lawan + W/L + tanggal + hero pick tim + match id.
+  const teamHeroesByMatch = new Map<number, { hero_id: number; name: string; img: string | null; position: number | null }[]>();
+  for (const r of teamMp) {
+    const arr = teamHeroesByMatch.get(r.match_id) ?? [];
+    arr.push({
+      hero_id: r.hero_id,
+      name: r.hero?.localized_name ?? String(r.hero_id),
+      img: r.hero?.img ?? null,
+      position: r.position,
+    });
+    teamHeroesByMatch.set(r.match_id, arr);
+  }
+  const last10 = filtered.slice(0, 10).map((m) => {
+    const isRad = side.get(m.match_id) === true;
+    const heroes = (teamHeroesByMatch.get(m.match_id) ?? []).slice().sort((a, b) => (a.position ?? 9) - (b.position ?? 9));
+    return {
+      matchId: m.match_id,
+      date: fmtDate(m.start_time),
+      win: won.has(m.match_id) ? won.get(m.match_id)! : null,
+      oppId: (isRad ? m.dire_team_id : m.radiant_team_id) ?? null,
+      oppName: (isRad ? m.dire?.name : m.radiant?.name) ?? "Unknown",
+      heroes,
+    };
+  });
+
   const initials = teamName.slice(0, 2).toUpperCase();
   const logo = team?.logo_url;
   const scopeLabel = selectedLeague !== null ? leagueMap.get(selectedLeague) : "All tournaments (this patch)";
@@ -848,6 +877,40 @@ export default async function TeamPage({
         selectedPatch={selectedPatch}
         selectedLeague={selectedLeague}
       />
+
+      {/* #3 Last 10 matches (ikut filter) */}
+      <div className="h2">Last 10 matches</div>
+      {last10.length === 0 ? (
+        <p className="dim">Belum ada match di scope ini.</p>
+      ) : (
+        <div className="card l10">
+          {last10.map((m) => (
+            <div key={m.matchId} className="l10-row">
+              <span className={`l10-res ${m.win === true ? "wr-good" : m.win === false ? "wr-bad" : "dim"}`}>
+                {m.win === null ? "—" : m.win ? "W" : "L"}
+              </span>
+              <span className="dim l10-date">{m.date}</span>
+              <span className="l10-opp">
+                vs {m.oppId ? <Link href={`/teams/${m.oppId}`}>{m.oppName}</Link> : m.oppName}
+              </span>
+              <span className="l10-heroes">
+                {m.heroes.map((h) => {
+                  const src = heroSrc(h.img);
+                  return src ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img key={h.hero_id} className="hero-mini" src={src} alt={h.name} title={h.name} width={34} height={20} />
+                  ) : (
+                    <span key={h.hero_id} className="dim" title={h.name}>{h.name.slice(0, 3)}</span>
+                  );
+                })}
+              </span>
+              <a className="l10-match dim" href={`https://www.dotabuff.com/matches/${m.matchId}`} target="_blank" rel="noreferrer">
+                {m.matchId}
+              </a>
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* position-pool + hero drill-down (client accordion) */}
       <div className="h2">

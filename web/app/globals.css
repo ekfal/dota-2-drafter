@@ -582,6 +582,45 @@ button.pos-others-toggle.open {
   font-size: 12px;
   font-variant-numeric: tabular-nums;
 }
+/* #3 last 10 matches */
+.l10 {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px 14px;
+}
+.l10-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  font-size: 12px;
+}
+.l10-res {
+  width: 16px;
+  font-weight: 700;
+  text-align: center;
+}
+.l10-date {
+  width: 78px;
+  font-variant-numeric: tabular-nums;
+}
+.l10-opp {
+  flex: 1;
+  min-width: 120px;
+}
+.l10-heroes {
+  display: inline-flex;
+  gap: 3px;
+  align-items: center;
+}
+.l10-heroes .hero-mini {
+  border-radius: 3px;
+}
+.l10-match {
+  font-variant-numeric: tabular-nums;
+}
+
 .patch-leagues {
   display: inline-flex;
   flex-wrap: wrap;
