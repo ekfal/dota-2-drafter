@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { getServerSupabase } from "@/lib/supabase";
+import { getServerSupabase, pageAll } from "@/lib/supabase";
 
 // FR-1 entry: list turnamen (nama + tanggal + jumlah match). Tanggal di-derive dari matches
 // (leagues tak simpan tanggal). Cuma league yang PUNYA match → no dead-end. Anon read-only.
@@ -24,14 +24,16 @@ export default async function TournamentsPage() {
 
   try {
     const supabase = getServerSupabase();
-    const mRes = await supabase
-      .from("matches")
-      .select("league_id, start_time")
-      .returns<{ league_id: number | null; start_time: number | null }[]>();
-    if (mRes.error) throw new Error(mRes.error.message);
+    const matchesAll = await pageAll<{ league_id: number | null; start_time: number | null }>((f, t) =>
+      supabase
+        .from("matches")
+        .select("league_id, start_time")
+        .range(f, t)
+        .returns<{ league_id: number | null; start_time: number | null }[]>()
+    );
 
     const agg = new Map<number, { matches: number; first: number; last: number }>();
-    for (const m of mRes.data ?? []) {
+    for (const m of matchesAll) {
       if (!m.league_id) continue;
       const a = agg.get(m.league_id) ?? { matches: 0, first: Infinity, last: 0 };
       a.matches++;

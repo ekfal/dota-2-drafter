@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { getServerSupabase } from "@/lib/supabase";
+import { getServerSupabase, pageAll } from "@/lib/supabase";
 import HomeSearch, { type SearchTeam, type SearchHero } from "./HomeSearch";
 
 // #1 HOME — landing: global search (team+hero) + 3 entry blok (tournaments, top teams by Elo, patches).
@@ -21,18 +21,21 @@ function fmtDate(epoch: number | null | undefined): string {
 export default async function Home() {
   const supabase = getServerSupabase();
 
-  // team match tally (biar cuma tim berdata yang tampil — no dead-end)
-  const [mRes, heroesRes, statRes, patchesRes] = await Promise.all([
-    supabase
-      .from("matches")
-      .select("radiant_team_id, dire_team_id")
-      .returns<{ radiant_team_id: number | null; dire_team_id: number | null }[]>(),
+  // SEMUA matches (paginated — matches > 1000 baris bikin scan biasa ke-truncate diam-diam).
+  const [matchesAll, heroesRes, patchesRes] = await Promise.all([
+    pageAll<{ radiant_team_id: number | null; dire_team_id: number | null; league_id: number | null; start_time: number | null }>(
+      (f, t) =>
+        supabase
+          .from("matches")
+          .select("radiant_team_id, dire_team_id, league_id, start_time")
+          .range(f, t)
+          .returns<{ radiant_team_id: number | null; dire_team_id: number | null; league_id: number | null; start_time: number | null }[]>()
+    ),
     supabase
       .from("heroes")
       .select("hero_id, localized_name, img")
       .order("localized_name")
       .returns<{ hero_id: number; localized_name: string | null; img: string | null }[]>(),
-    supabase.from("tournament_hero_stats").select("league_id").returns<{ league_id: number }[]>(),
     supabase
       .from("patches")
       .select("id, name, start_time")
@@ -41,9 +44,18 @@ export default async function Home() {
       .returns<{ id: number; name: string; start_time: number }[]>(),
   ]);
 
+  // team match tally + tournament recency, dari matches (bukan tournament_hero_stats yang ke-cap 1000).
   const count = new Map<number, number>();
-  for (const m of mRes.data ?? [])
+  const leagueAgg = new Map<number, { latest: number; matches: number }>();
+  for (const m of matchesAll) {
     for (const t of [m.radiant_team_id, m.dire_team_id]) if (t) count.set(t, (count.get(t) ?? 0) + 1);
+    if (m.league_id) {
+      const a = leagueAgg.get(m.league_id) ?? { latest: 0, matches: 0 };
+      a.matches++;
+      if ((m.start_time ?? 0) > a.latest) a.latest = m.start_time ?? 0;
+      leagueAgg.set(m.league_id, a);
+    }
+  }
   const teamIds = [...count.keys()];
 
   let teamsFull: TeamFull[] = [];
@@ -70,17 +82,20 @@ export default async function Home() {
     .sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0))
     .slice(0, 8);
 
-  // tournaments (yang punya agregat)
-  const leagueIds = [...new Set((statRes.data ?? []).map((r) => r.league_id))];
+  // tournaments TERBARU (urut by match terakhir, bukan alfabetis) → EWC/terbaru muncul.
+  const topLeagueIds = [...leagueAgg.entries()]
+    .sort((a, b) => b[1].latest - a[1].latest)
+    .slice(0, 8)
+    .map(([id]) => id);
   let leagues: { league_id: number; name: string | null }[] = [];
-  if (leagueIds.length > 0) {
+  if (topLeagueIds.length > 0) {
     const lRes = await supabase
       .from("leagues")
       .select("league_id, name")
-      .in("league_id", leagueIds)
-      .order("name")
+      .in("league_id", topLeagueIds)
       .returns<{ league_id: number; name: string | null }[]>();
-    leagues = (lRes.data ?? []).slice(0, 8);
+    const nameById = new Map((lRes.data ?? []).map((l) => [l.league_id, l.name]));
+    leagues = topLeagueIds.map((id) => ({ league_id: id, name: nameById.get(id) ?? `League ${id}` }));
   }
 
   const patches = patchesRes.data ?? [];

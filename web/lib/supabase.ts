@@ -17,3 +17,22 @@ export function getServerSupabase(): SupabaseClient {
   }
   return createClient(url, anonKey, { auth: { persistSession: false } });
 }
+
+/**
+ * Ambil SEMUA baris via range pagination — hindari cap 1000 baris PostgREST yang diam-diam truncate.
+ * makeQuery(from,to) harus balikin query dengan .range(from,to).returns<T[]>(). Loop sampai < 1000.
+ * Pakai buat scan tabel besar (matches, picks_bans, *_hero_stats) yang bisa > 1000 baris.
+ */
+export async function pageAll<T>(
+  makeQuery: (from: number, to: number) => PromiseLike<{ data: T[] | null; error: unknown }>
+): Promise<T[]> {
+  const PAGE = 1000;
+  const out: T[] = [];
+  for (let from = 0; ; from += PAGE) {
+    const { data } = await makeQuery(from, from + PAGE - 1);
+    const rows = data ?? [];
+    out.push(...rows);
+    if (rows.length < PAGE) break;
+  }
+  return out;
+}

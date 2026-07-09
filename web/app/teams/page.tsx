@@ -1,4 +1,4 @@
-import { getServerSupabase } from "@/lib/supabase";
+import { getServerSupabase, pageAll } from "@/lib/supabase";
 import TeamSearch from "./TeamSearch";
 
 // FR-2 entry: grid kartu tim (logo + nama + rekor W-L) + search. Anon read-only.
@@ -22,11 +22,14 @@ export default async function TeamsPage() {
   try {
     const supabase = getServerSupabase();
 
-    const mRes = await supabase
-      .from("matches")
-      .select("radiant_team_id, dire_team_id, radiant_win")
-      .returns<{ radiant_team_id: number | null; dire_team_id: number | null; radiant_win: boolean | null }[]>();
-    if (mRes.error) throw new Error(mRes.error.message);
+    const matchesAll = await pageAll<{ radiant_team_id: number | null; dire_team_id: number | null; radiant_win: boolean | null }>(
+      (f, t) =>
+        supabase
+          .from("matches")
+          .select("radiant_team_id, dire_team_id, radiant_win")
+          .range(f, t)
+          .returns<{ radiant_team_id: number | null; dire_team_id: number | null; radiant_win: boolean | null }[]>()
+    );
 
     const rec = new Map<number, { w: number; l: number; g: number }>();
     const bump = (id: number | null, won: boolean | null) => {
@@ -37,7 +40,7 @@ export default async function TeamsPage() {
       else if (won === false) r.l++;
       rec.set(id, r);
     };
-    for (const m of mRes.data ?? []) {
+    for (const m of matchesAll) {
       bump(m.radiant_team_id, m.radiant_win);
       bump(m.dire_team_id, m.radiant_win === null ? null : !m.radiant_win);
     }

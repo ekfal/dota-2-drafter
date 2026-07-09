@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { getServerSupabase } from "@/lib/supabase";
+import { getServerSupabase, pageAll } from "@/lib/supabase";
 
 // #2 patches list: patch + tanggal rilis + jumlah match + turnamen di patch itu (link → tournament).
 export const dynamic = "force-dynamic";
@@ -23,23 +23,25 @@ export default async function PatchesPage() {
 
   try {
     const supabase = getServerSupabase();
-    const [pRes, mRes] = await Promise.all([
+    const [pRes, matchesAll] = await Promise.all([
       supabase
         .from("patches")
         .select("id, name, start_time")
         .order("start_time", { ascending: false })
         .returns<{ id: number; name: string; start_time: number }[]>(),
-      supabase
-        .from("matches")
-        .select("patch_id, league_id")
-        .returns<{ patch_id: number | null; league_id: number | null }[]>(),
+      pageAll<{ patch_id: number | null; league_id: number | null }>((f, t) =>
+        supabase
+          .from("matches")
+          .select("patch_id, league_id")
+          .range(f, t)
+          .returns<{ patch_id: number | null; league_id: number | null }[]>()
+      ),
     ]);
     if (pRes.error) throw new Error(pRes.error.message);
-    if (mRes.error) throw new Error(mRes.error.message);
 
     const cnt = new Map<number, number>();
     const leaguesByPatch = new Map<number, Set<number>>();
-    for (const m of mRes.data ?? []) {
+    for (const m of matchesAll) {
       if (m.patch_id == null) continue;
       cnt.set(m.patch_id, (cnt.get(m.patch_id) ?? 0) + 1);
       if (m.league_id) {

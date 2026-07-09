@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { getServerSupabase } from "@/lib/supabase";
+import { getServerSupabase, pageAll } from "@/lib/supabase";
 
 // #4 hero page — dibangun bertahap. Section 1: header + who-plays.
 export const dynamic = "force-dynamic";
@@ -55,18 +55,22 @@ export default async function HeroPage({ params }: { params: { hero_id: string }
       .select("hero_id, localized_name, primary_attr, img")
       .eq("hero_id", id)
       .maybeSingle<HeroRow>(),
-    supabase
-      .from("match_players")
-      .select(
-        `match_id, account_id, is_radiant, win, position,
-         player:players!match_players_account_id_fkey(name),
-         match:matches!match_players_match_id_fkey(
-           start_time, radiant_team_id, dire_team_id,
-           radiant:teams!matches_radiant_team_id_fkey(name),
-           dire:teams!matches_dire_team_id_fkey(name))`
-      )
-      .eq("hero_id", id)
-      .returns<MpRow[]>(),
+    pageAll<MpRow>((f, t) =>
+      supabase
+        .from("match_players")
+        .select(
+          `match_id, account_id, is_radiant, win, position,
+           player:players!match_players_account_id_fkey(name),
+           match:matches!match_players_match_id_fkey(
+             start_time, radiant_team_id, dire_team_id,
+             radiant:teams!matches_radiant_team_id_fkey(name),
+             dire:teams!matches_dire_team_id_fkey(name))`
+        )
+        .eq("hero_id", id)
+        .order("match_id")
+        .range(f, t)
+        .returns<MpRow[]>()
+    ),
     supabase
       .from("picks_bans")
       .select("*", { count: "exact", head: true })
@@ -80,7 +84,7 @@ export default async function HeroPage({ params }: { params: { hero_id: string }
   const src = heroSrc(hero?.img);
 
   // section 2: pick/ban rate + win rate (data kita)
-  const mpData = mpRes.data ?? [];
+  const mpData = mpRes;
   const picks = mpData.length; // match_players = hero yang di-PICK & main → 1 baris/pick
   const wins = mpData.filter((r) => r.win).length;
   const bans = banRes.count ?? 0;
@@ -125,7 +129,7 @@ export default async function HeroPage({ params }: { params: { hero_id: string }
     number,
     { name: string; games: number; teamVote: Map<number, { name: string; n: number }> }
   >();
-  for (const r of mpRes.data ?? []) {
+  for (const r of mpData) {
     const key = r.account_id ?? -1;
     const cur =
       byPlayer.get(key) ??

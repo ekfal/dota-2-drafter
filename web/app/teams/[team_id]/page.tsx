@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { getServerSupabase } from "@/lib/supabase";
+import { getServerSupabase, pageAll } from "@/lib/supabase";
 import PrintButton from "./PrintButton";
 import Filters from "./Filters";
 import PoolAccordion from "./PoolAccordion";
@@ -347,28 +347,39 @@ export default async function TeamPage({
   let teamPb: PbRow[] = [];
   let allPb: PbRow[] = [];
   if (matchIds.length > 0) {
-    const [mpRes, pbRes] = await Promise.all([
-      supabase
-        .from("match_players")
-        .select(
-          `match_id, account_id, hero_id, is_radiant, position, win, lane_result, net_worth, lane_role,
-           player:players!match_players_account_id_fkey(name),
-           hero:heroes!match_players_hero_id_fkey(localized_name, img)`
-        )
-        .in("match_id", matchIds)
-        .returns<MpRow[]>(),
-      supabase
-        .from("picks_bans")
-        .select(
-          `match_id, ord, is_pick, hero_id, team,
-           hero:heroes!picks_bans_hero_id_fkey(localized_name, img)`
-        )
-        .in("match_id", matchIds)
-        .returns<PbRow[]>(),
+    // paginate: match_players (~10/match) + picks_bans (~24/match) bisa > 1000 baris utk banyak match.
+    const [mpAll, pbAll] = await Promise.all([
+      pageAll<MpRow>((f, t) =>
+        supabase
+          .from("match_players")
+          .select(
+            `match_id, account_id, hero_id, is_radiant, position, win, lane_result, net_worth, lane_role,
+             player:players!match_players_account_id_fkey(name),
+             hero:heroes!match_players_hero_id_fkey(localized_name, img)`
+          )
+          .in("match_id", matchIds)
+          .order("match_id")
+          .order("hero_id")
+          .range(f, t)
+          .returns<MpRow[]>()
+      ),
+      pageAll<PbRow>((f, t) =>
+        supabase
+          .from("picks_bans")
+          .select(
+            `match_id, ord, is_pick, hero_id, team,
+             hero:heroes!picks_bans_hero_id_fkey(localized_name, img)`
+          )
+          .in("match_id", matchIds)
+          .order("match_id")
+          .order("ord")
+          .range(f, t)
+          .returns<PbRow[]>()
+      ),
     ]);
-    teamMp = (mpRes.data ?? []).filter((r) => side.get(r.match_id) === r.is_radiant);
-    oppMp = (mpRes.data ?? []).filter((r) => side.get(r.match_id) !== r.is_radiant);
-    allPb = pbRes.data ?? [];
+    teamMp = mpAll.filter((r) => side.get(r.match_id) === r.is_radiant);
+    oppMp = mpAll.filter((r) => side.get(r.match_id) !== r.is_radiant);
+    allPb = pbAll;
     // hanya pick/ban milik sisi tim: (team===0)===isRadiant
     teamPb = allPb.filter((r) => side.get(r.match_id) === (r.team === 0));
   }
