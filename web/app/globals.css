@@ -1190,7 +1190,41 @@ button.pos-others-toggle.open {
 }
 .cpb-ban-name {
   flex: 1;
-  font-size: 12px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+}
+.cpb-ban-freq {
+  font-size: 13px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+/* kekuatan asosiasi (dari lift) sbg tag kecil — bukan angka mentah */
+.cpb-tier {
+  min-width: 48px;
+  text-align: center;
+  padding: 1px 7px;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  border-radius: 3px;
+  cursor: help;
+}
+.cpb-tier.strong {
+  color: var(--gold-bright);
+  background: rgba(200, 170, 110, 0.16);
+  border: 1px solid var(--border-gold);
+}
+.cpb-tier.mid {
+  color: var(--text-muted);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+}
+.cpb-tier.meta {
+  color: var(--text-dim);
+  border: 1px solid transparent;
 }
 .cpb-ban-count {
   font-size: 12px;

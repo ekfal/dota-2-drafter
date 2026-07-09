@@ -46,10 +46,10 @@ export default function CondPickBan({ picks }: { picks: CondPick[] }) {
         ))}
       </div>
 
-      {/* kanan: co-ban hero terpilih — urut lift desc */}
+      {/* kanan: "saat pick X, cenderung ban Y" — nama + berapa kali menonjol, kekuatan = tag kecil */}
       <div className="cpb-panel">
         <div className="cpb-panel-head">
-          When picked <b>{active.name}</b> <span className="dim">({active.pickCount}g)</span>
+          Saat pick <b>{active.name}</b> <span className="dim">({active.pickCount} game)</span> → tim ini cenderung ban:
           {active.reliable ? null : (
             <span className="cpb-flag" title="Pick sample kecil (n<8) — anggap indikasi awal, bukan sinyal kuat">
               n&lt;8
@@ -57,19 +57,30 @@ export default function CondPickBan({ picks }: { picks: CondPick[] }) {
           )}
         </div>
         {active.cobans.length === 0 ? (
-          <div className="dim">No bans recorded in these matches.</div>
+          <div className="dim">Belum ada ban tercatat di match-match ini.</div>
         ) : (
           <div className="cpb-bans">
             {active.cobans.map((b) => {
-              const meta = b.lift < 1.2; // lift ~1 = meta-ban, redam
+              const meta = b.lift < 1.2; // lift ~1 = meta-ban (diban siapa aja), redam
+              const tier =
+                b.lift >= 2 ? { label: "kuat", cls: "strong" } : b.lift >= 1.3 ? { label: "sedang", cls: "mid" } : null;
               return (
                 <div key={b.hero_id} className="cpb-ban" style={meta ? { opacity: 0.5 } : undefined}>
                   <Thumb img={b.img} name={b.name} />
                   <span className="cpb-ban-name">{b.name}</span>
-                  <span className="cpb-ban-count">
-                    <b className={`cpb-lift ${b.lift >= 2 ? "wr-good" : ""}`}>{b.lift.toFixed(1)}×</b>
-                    <span className="dim cpb-co">{b.co}/{active.pickCount}</span>
+                  <span className="cpb-ban-freq">
+                    {b.co}
+                    <span className="dim">/{active.pickCount} pick</span>
                   </span>
+                  {tier ? (
+                    <span className={`cpb-tier ${tier.cls}`} title={`Lift ${b.lift.toFixed(1)}× vs baseline ban (indikasi kuat/sedang-nya asosiasi)`}>
+                      {tier.label}
+                    </span>
+                  ) : (
+                    <span className="cpb-tier meta" title={`Lift ${b.lift.toFixed(1)}× — hampir sama kayak ban biasa (meta)`}>
+                      meta
+                    </span>
+                  )}
                 </div>
               );
             })}
