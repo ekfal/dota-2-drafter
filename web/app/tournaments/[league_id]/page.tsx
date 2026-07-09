@@ -122,6 +122,15 @@ export default async function TournamentDetailPage({
           {" · "}
           {/* Angka selalu dengan sample size */}
           Sample: {totalMatches} match
+          {" · "}
+          {/* #1: belum ada URL Liquipedia langsung → search by nama (bracket/detail) */}
+          <a
+            href={`https://liquipedia.net/dota2/Special:Search?search=${encodeURIComponent(name)}`}
+            target="_blank"
+            rel="noreferrer"
+          >
+            Cari di Liquipedia ↗
+          </a>
         </div>
       </section>
 
