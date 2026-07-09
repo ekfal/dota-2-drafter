@@ -1,0 +1,32 @@
+name: stratz-lane
+
+# Backfill lane_result (STRATZ) buat match baru. Jalan tiap jam SETELAH ingest (cursor stratz_cursor,
+# match_id asc → catch-up ke match terbaru). Butuh secret STRATZ_TOKEN.
+on:
+  schedule:
+    - cron: "20 * * * *" # tiap jam :20 (ingest :00 duluan biar match-nya udah masuk)
+  workflow_dispatch: {}
+
+concurrency:
+  group: stratz
+  cancel-in-progress: false
+
+jobs:
+  stratz:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: worker
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: worker/package-lock.json
+      - run: npm ci
+      - run: npm run stratz
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          STRATZ_TOKEN: ${{ secrets.STRATZ_TOKEN }}

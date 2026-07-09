@@ -1,0 +1,32 @@
+name: roster
+
+# Roster kanonik STRATZ -> team_player_roles. Harian. roster.ts skip tim yang fresh (<7 hari) &
+# fetch tim BARU (mis. tim EWC yang baru masuk) + tim stale otomatis. Butuh secret STRATZ_TOKEN.
+on:
+  schedule:
+    - cron: "45 4 * * *" # harian 04:45 UTC (setelah aggregate 04:30)
+  workflow_dispatch: {}
+
+concurrency:
+  group: roster
+  cancel-in-progress: false
+
+jobs:
+  roster:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: worker
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: worker/package-lock.json
+      - run: npm ci
+      - run: npm run roster
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          STRATZ_TOKEN: ${{ secrets.STRATZ_TOKEN }}
