@@ -564,8 +564,10 @@ export default async function TeamPage({
       .sort((a, b) => b.games - a.games);
   }
 
-  // position-pool: main kanonik. FIX-2: kalau main resmi 0 game TAPI ada standin berdata → promote
-  // standin (games terbanyak) jadi baris utama (pool + W-L-nya), main resmi tetap disebut di label.
+  // position-pool: main kanonik. Kalau main resmi 0 game TAPI ada player berdata → promote yang
+  // games terbanyak jadi baris utama (pool + W-L-nya).
+  //   - Main resmi ADA (roster STRATZ punya pos ini) → promoted = STANDIN (badge, main resmi disebut).
+  //   - Main resmi TAK ADA (roster bolong, mis. REKONIX no P1) → promoted = DE-FACTO MAIN (no badge).
   const positions: PosData[] = [1, 2, 3, 4, 5].map((pos) => {
     const main = mains.get(pos) ?? null;
     const mainAcct = main?.account_id ?? null;
@@ -585,9 +587,9 @@ export default async function TeamPage({
     let isStandinRow = false;
     let restAccts = otherAccts;
     if (mainGamesRaw === 0 && otherAccts.length > 0) {
-      displayAcct = otherAccts[0]!; // standin dengan game terbanyak
+      displayAcct = otherAccts[0]!; // games terbanyak
       displayName = nameByAccount.get(displayAcct) ?? `Player ${displayAcct}`;
-      isStandinRow = true;
+      isStandinRow = main != null; // STANDIN cuma kalau ada main resmi; roster bolong → de-facto main
       restAccts = otherAccts.slice(1);
     }
 
