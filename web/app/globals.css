@@ -1,21 +1,30 @@
 /* DESIGN.md v2 — dark, modern, portrait-driven (STRATZ-style). Retro dibuang. */
 
 :root {
-  --bg: #0e1116;
-  --surface: #12171f;
-  --surface-2: #1a2029;
-  --border: #1f2530;
-  --border-strong: #2a3140;
-  --text: #e6e8ec;
-  --text-muted: #8b93a1;
-  --text-dim: #6b7280;
-  --accent: #4c9aff;
-  --win: #3fb950;
-  --loss: #f0603e;
-  --neutral: #7a828f;
+  /* DESIGN.md v3 — Dota HUD: gold + hitam-hangat + merah/olive */
+  --bg: #0d0b09;
+  --surface: #16120e;
+  --surface-2: #1e1813;
+  --border: #2a2118;
+  --border-gold: #3a2f1e;
+  --gold: #c8aa6e;
+  --gold-bright: #e4c885;
+  --text: #e8e0d4;
+  --text-muted: #9a8f7e;
+  --text-dim: #6a6152;
+  --dire: #c8493a;
+  --radiant: #92a525;
+  --neutral: #8a7a5e;
+
+  /* alias nama lama → v3 supaya komponen existing auto re-skin */
+  --accent: var(--gold);
+  --border-strong: var(--border-gold);
+  --win: var(--radiant);
+  --loss: var(--dire);
 
   --font: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
   --container: 1160px;
+  --radius: 3px;
 }
 
 * {
@@ -54,9 +63,14 @@ a:hover {
   align-items: center;
   gap: 20px;
 }
+.app-nav {
+  border-bottom: 1px solid var(--border-gold);
+}
 .app-nav .brand {
-  font-weight: 700;
-  color: var(--text);
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  color: var(--gold-bright);
+  text-transform: uppercase;
 }
 .app-nav a {
   color: var(--text-muted);
@@ -82,9 +96,17 @@ a:hover {
 
 /* ---------- generic ---------- */
 .h2 {
-  font-size: 16px;
-  font-weight: 600;
+  font-size: 15px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--gold);
   margin: 24px 0 12px;
+}
+.h2::before {
+  content: "◆ ";
+  color: var(--border-gold);
+  font-size: 11px;
 }
 .label {
   font-size: 12px;
@@ -109,7 +131,8 @@ a:hover {
 .card {
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-top: 2px solid var(--border-gold);
+  border-radius: 3px;
   padding: 16px;
 }
 
@@ -131,14 +154,14 @@ a:hover {
   gap: 16px;
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 12px;
+  border-radius: 4px;
   padding: 16px 20px;
 }
 .team-logo,
 .team-logo-fallback {
   width: 56px;
   height: 56px;
-  border-radius: 8px;
+  border-radius: 3px;
   flex: none;
   object-fit: contain;
   background: var(--surface-2);
@@ -154,7 +177,8 @@ a:hover {
 }
 .team-title {
   font-size: 22px;
-  font-weight: 700;
+  font-weight: 800;
+  color: var(--gold-bright);
 }
 .team-meta {
   color: var(--text-muted);
@@ -165,14 +189,16 @@ a:hover {
   flex: 1;
 }
 .btn-accent {
-  background: var(--accent);
-  color: #0b1220;
+  background: var(--gold);
+  color: #1a1206;
   border: none;
-  border-radius: 8px;
+  border-radius: 3px;
   padding: 8px 14px;
   font-family: var(--font);
   font-size: 13px;
-  font-weight: 600;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
   cursor: pointer;
 }
 .btn-accent:hover {
@@ -189,7 +215,7 @@ a:hover {
 .chip {
   display: inline-block;
   padding: 4px 10px;
-  border-radius: 12px;
+  border-radius: 4px;
   background: var(--surface);
   border: 1px solid var(--border);
   color: var(--text-muted);
@@ -213,7 +239,7 @@ a:hover {
   gap: 12px;
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: 3px;
   padding: 12px;
 }
 .pos-head .pos-tag {
@@ -224,6 +250,23 @@ a:hover {
 .pos-head .pos-player {
   font-size: 13px;
   margin-top: 2px;
+}
+/* STANDIN badge (DESIGN v3 §5): kecil, dire redup, uppercase — detail di tooltip, bukan inline. */
+.badge-standin {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 0 5px;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 15px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--dire);
+  background: rgba(200, 73, 58, 0.13);
+  border: 1px solid rgba(200, 73, 58, 0.32);
+  border-radius: 3px;
+  vertical-align: middle;
+  cursor: help;
 }
 .pos-head .pos-sub {
   color: var(--text-dim);
@@ -335,7 +378,7 @@ button.pos-others-toggle.open {
   background: var(--surface-2);
   border: 1px solid var(--border-strong);
   color: var(--text);
-  border-radius: 8px;
+  border-radius: 3px;
   padding: 7px 10px;
   font-family: var(--font);
   font-size: 13px;
@@ -363,8 +406,10 @@ button.pos-others-toggle.open {
 }
 .home-title {
   font-size: 30px;
-  font-weight: 700;
-  letter-spacing: -0.01em;
+  font-weight: 800;
+  letter-spacing: 0.01em;
+  text-transform: uppercase;
+  color: var(--gold-bright);
 }
 .home-tag {
   font-size: 14px;
@@ -405,7 +450,7 @@ button.pos-others-toggle.open {
   align-items: center;
   gap: 9px;
   padding: 6px;
-  border-radius: 6px;
+  border-radius: 4px;
   color: var(--text);
 }
 .hsr-row:hover {
@@ -443,7 +488,7 @@ button.pos-others-toggle.open {
 .home-block {
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: 3px;
   padding: 14px 16px;
 }
 .home-block-head {
@@ -469,7 +514,7 @@ button.pos-others-toggle.open {
   align-items: center;
   gap: 9px;
   padding: 6px;
-  border-radius: 6px;
+  border-radius: 4px;
   color: var(--text);
 }
 .elo-card:hover {
@@ -516,7 +561,7 @@ button.pos-others-toggle.open {
   justify-content: space-between;
   gap: 8px;
   padding: 6px;
-  border-radius: 6px;
+  border-radius: 4px;
   color: var(--text);
 }
 .link-row:hover {
@@ -541,7 +586,7 @@ button.pos-others-toggle.open {
   gap: 12px;
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: 3px;
   padding: 12px;
   color: var(--text);
 }
@@ -551,7 +596,7 @@ button.pos-others-toggle.open {
   text-decoration: none;
 }
 .team-card-logo {
-  border-radius: 6px;
+  border-radius: 4px;
   object-fit: cover;
   flex: none;
 }
@@ -564,7 +609,7 @@ button.pos-others-toggle.open {
   font-size: 13px;
   font-weight: 600;
   background: var(--surface-2);
-  border-radius: 6px;
+  border-radius: 4px;
   color: var(--text-muted);
   flex: none;
 }
@@ -633,7 +678,11 @@ button.pos-others-toggle.open {
   --text: #171b22;
   --text-muted: #4a5563;
   --text-dim: #6b7280;
-  --accent: #1667d0;
+  --accent: #8a6d2f;
+  --gold: #8a6d2f;
+  --gold-bright: #6f5626;
+  --radiant: #5c7a1e;
+  --dire: #b23a2c;
   background: #ffffff !important;
   color: #171b22 !important;
 }
@@ -730,7 +779,7 @@ button.pos-others-toggle.open {
 .drill {
   background: var(--surface);
   border: 1px solid var(--border-strong);
-  border-radius: 8px;
+  border-radius: 3px;
   padding: 12px;
   display: flex;
   flex-direction: column;
@@ -744,7 +793,7 @@ button.pos-others-toggle.open {
 .drill-match {
   border: 1px solid var(--border);
   border-left: 3px solid var(--neutral);
-  border-radius: 6px;
+  border-radius: 4px;
   padding: 8px 10px;
   background: var(--bg);
 }
@@ -821,7 +870,7 @@ button.pos-others-toggle.open {
   background: var(--surface-2);
   border: 1px solid var(--border);
   color: var(--text-muted);
-  border-radius: 6px;
+  border-radius: 4px;
   padding: 3px 8px;
   font-family: var(--font);
   font-size: 11px;
@@ -936,7 +985,7 @@ button.pos-others-toggle.open {
 .duo-group {
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: 3px;
   padding: 12px;
   display: flex;
   flex-direction: column;
@@ -1019,7 +1068,7 @@ button.pos-others-toggle.open {
   gap: 14px;
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: 3px;
   padding: 12px;
 }
 .cpb-list {
@@ -1037,7 +1086,7 @@ button.pos-others-toggle.open {
   gap: 8px;
   padding: 4px 6px;
   border: 1px solid transparent;
-  border-radius: 6px;
+  border-radius: 4px;
   background: none;
   color: var(--text);
   font-family: var(--font);
@@ -1153,7 +1202,7 @@ button.pos-others-toggle.open {
   width: 110px;
   height: 62px;
   object-fit: cover;
-  border-radius: 6px;
+  border-radius: 4px;
   display: block;
 }
 .badge-pro {
@@ -1177,7 +1226,7 @@ button.pos-others-toggle.open {
 .hstat {
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: 3px;
   padding: 12px 14px;
 }
 .hstat-v {
@@ -1205,7 +1254,7 @@ button.pos-others-toggle.open {
   border-collapse: collapse;
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: 3px;
   overflow: hidden;
 }
 .data-table thead th {
@@ -1246,7 +1295,7 @@ button.pos-others-toggle.open {
 }
 .bar-track {
   background: var(--surface-2);
-  border-radius: 6px;
+  border-radius: 4px;
   height: 14px;
   overflow: hidden;
 }

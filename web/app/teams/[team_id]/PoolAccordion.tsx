@@ -23,15 +23,14 @@ function fmtDate(epoch: number | null): string {
   return new Date(epoch * 1000).toISOString().slice(0, 10);
 }
 
-// BAGIAN A: winrate → warna kontinu (0% merah → 50% kuning → 100% hijau) sebagai tint overlay.
-// alpha diredam sample kecil (<3 game) biar gak nyala penuh & nyesatin.
+// BAGIAN A: winrate → warna Dota (radiant-olive / neutral / dire) sebagai border+tint portrait.
+// Diskret (bukan hue neon): >=55% radiant, <45% dire, else neutral (DESIGN v3). alpha diredam sample kecil.
 export function wrTint(wins: number, games: number): { color: string; alpha: number } {
   const wr = games ? wins / games : 0.5;
-  const hue = Math.round(wr * 120); // 0=merah, 60=kuning, 120=hijau
-  const color = `hsl(${hue}, 72%, 45%)`;
+  const color = wr >= 0.55 ? "#92a525" : wr < 0.45 ? "#c8493a" : "#8a7a5e"; // radiant / dire / neutral
   const conf = Math.min(1, games / 3); // 1 game→0.33, 3+→1
   const spread = Math.abs(wr - 0.5) * 2; // 0 di 50%, 1 di ekstrem
-  const alpha = Math.min(0.6, (0.22 + 0.34 * spread) * conf);
+  const alpha = Math.min(0.55, (0.2 + 0.34 * spread) * conf);
   return { color, alpha };
 }
 
@@ -172,9 +171,15 @@ export default function PoolAccordion({ positions }: { positions: PosData[] }) {
                 <div className="pos-player">
                   {row.playerId ? <Link href={`/players/${row.playerId}`}>{row.playerName}</Link> : row.playerName}
                   {row.isStandinRow ? (
-                    <span className="dim pos-standin-note" style={{ fontWeight: 400 }}>
-                      {" "}· standin
-                      {row.canonicalMainName ? ` · main resmi ${row.canonicalMainName} belum ada game di data` : ""}
+                    <span
+                      className="badge-standin"
+                      title={
+                        row.canonicalMainName
+                          ? `Standin. Main resmi ${row.canonicalMainName} belum ada game di data.`
+                          : "Standin — belum ada main resmi di data."
+                      }
+                    >
+                      Standin
                     </span>
                   ) : row.mainGames === 0 && row.playerName !== "—" ? (
                     <span className="dim" style={{ fontWeight: 400 }}> · belum ada game</span>
