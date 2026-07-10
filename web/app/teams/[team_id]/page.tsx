@@ -680,54 +680,60 @@ export default async function TeamPage({
     duoGroup("Offlane · 3+4", 3, 4),
   ];
 
-  // #6 lane matchup vs lawan: duo lane kita vs duo lawan berhadapan (safe↔off), W/L lane (core).
-  const oppPosHeroByMatch = new Map<number, Map<number, DuoHero>>();
-  for (const r of oppMp) {
-    if (r.position == null) continue;
-    const pm = oppPosHeroByMatch.get(r.match_id) ?? new Map<number, DuoHero>();
-    pm.set(r.position, {
-      hero_id: r.hero_id,
-      name: r.hero?.localized_name ?? String(r.hero_id),
-      img: r.hero?.img ?? null,
-    });
-    oppPosHeroByMatch.set(r.match_id, pm);
+  // #6 lane matchup — pakai lane_role (lane ASLI OpenDota), pairing lane FISIK. BUKAN posisi net-worth.
+  // Skip kalau gak ada lawan di lane fisik yang sama (swap/uncontested/roam) — cuma konfrontasi beneran.
+  const physLane = (laneRole: number | null, isRad: boolean): "top" | "mid" | "bottom" | null => {
+    if (laneRole === 2) return "mid";
+    if (laneRole === 1) return isRad ? "bottom" : "top"; // SAFE
+    if (laneRole === 3) return isRad ? "top" : "bottom"; // OFF
+    return null; // jungle(4)/roam/null → gak dinilai
+  };
+  const heroOf = (r: MpRow): MatchupHero => ({ name: r.hero?.localized_name ?? String(r.hero_id), img: r.hero?.img ?? null });
+  const nwDesc = (a: MpRow, b: MpRow) => (b.net_worth ?? 0) - (a.net_worth ?? 0);
+  const ourByMatch = new Map<number, MpRow[]>();
+  const oppByMatch = new Map<number, MpRow[]>();
+  for (const r of teamMp) {
+    const a = ourByMatch.get(r.match_id) ?? [];
+    a.push(r);
+    ourByMatch.set(r.match_id, a);
   }
-  // lane_result core kita per (match, pos)
-  const teamLaneRes = new Map<string, number | null>();
-  for (const r of teamMp) if (r.position != null) teamLaneRes.set(`${r.match_id}:${r.position}`, r.lane_result);
+  for (const r of oppMp) {
+    const a = oppByMatch.get(r.match_id) ?? [];
+    a.push(r);
+    oppByMatch.set(r.match_id, a);
+  }
 
-  function laneMatchupGroup(
-    label: string,
-    ourPos: [number, number],
-    oppPos: [number, number],
-    corePos: number
-  ): LaneMatchupGroup {
+  // LANE = lane_role kita (1 SAFE / 2 MID / 3 OFF). Lawan = siapa pun di physical lane yang sama.
+  function laneMatchupGroup(label: string, ourLaneRole: 1 | 2 | 3): LaneMatchupGroup {
     const rows: LaneMatchup[] = [];
     for (const m of filtered) {
-      const our = posHeroByMatch.get(m.match_id);
-      if (!our) continue;
-      const ourDuo = ourPos.map((p) => our.get(p)).filter((h): h is DuoHero => !!h);
-      if (ourDuo.length === 0) continue; // gak ada data lane kita
-      const opp = oppPosHeroByMatch.get(m.match_id);
-      const oppDuo = oppPos.map((p) => opp?.get(p)).filter((h): h is DuoHero => !!h);
       const isRad = side.get(m.match_id) === true;
+      const ours = (ourByMatch.get(m.match_id) ?? []).filter((r) => r.lane_role === ourLaneRole);
+      if (ours.length === 0) continue; // gak ada pemain kita di lane ini
+      const phys = physLane(ourLaneRole, isRad);
+      if (!phys) continue;
+      const opps = (oppByMatch.get(m.match_id) ?? []).filter((r) => physLane(r.lane_role, r.is_radiant) === phys);
+      if (opps.length === 0) continue; // gak ada lawan di lane fisik ini → SKIP (swap/uncontested/roam)
+      // W/L lane: rep = core kita (net_worth tertinggi) yang lane_result-nya non-null.
+      const withRes = ours.filter((r) => r.lane_result != null).sort(nwDesc);
       rows.push({
         matchId: m.match_id,
         start_time: m.start_time ?? null,
-        ourDuo: ourDuo.map((h) => ({ name: h.name, img: h.img })),
-        oppDuo: oppDuo.map((h) => ({ name: h.name, img: h.img })),
+        ourDuo: [...ours].sort(nwDesc).map(heroOf),
+        oppDuo: [...opps].sort(nwDesc).map(heroOf),
         oppId: (isRad ? m.dire_team_id : m.radiant_team_id) ?? null,
         oppName: (isRad ? m.dire?.name : m.radiant?.name) ?? "Unknown",
-        laneResult: teamLaneRes.get(`${m.match_id}:${corePos}`) ?? null,
+        laneResult: withRes.length ? withRes[0]!.lane_result! : null,
       });
     }
     rows.sort((a, b) => (b.start_time ?? 0) - (a.start_time ?? 0));
     return { label, matchups: rows.slice(0, 20) };
   }
   const laneMatchups: LaneMatchupGroup[] = [
-    laneMatchupGroup("Safelane · our 1+5 vs opp 3+4", [1, 5], [3, 4], 1),
-    laneMatchupGroup("Offlane · our 3+4 vs opp 1+5", [3, 4], [1, 5], 3),
-  ];
+    laneMatchupGroup("Safelane", 1),
+    laneMatchupGroup("Midlane", 2),
+    laneMatchupGroup("Offlane", 3),
+  ].filter((g) => g.matchups.length > 0);
 
   // #3 conditional pick → ban — FIX-A: LIFT (smoothed), ALL-TIME TEAM-WIDE (decoupled dari filter).
   // lift(Y|X) = P(ban Y | pick X) / P(ban Y). p di-shrink ke baseline q pakai K → anti-explosion n kecil.
@@ -1001,14 +1007,16 @@ export default async function TeamPage({
         </div>
       </div>
 
-      {/* #6 lane matchup vs opponent — per-match list, current filter scope */}
+      {/* #6 lane matchup vs opponent — pakai lane_role (lane asli), lane fisik. current filter scope */}
       <div className="h2">Lane matchups vs opponent (STRATZ)</div>
-      {laneMatchups.map((g) => (
-        <LaneMatchupCard key={g.label} group={g} />
-      ))}
+      {laneMatchups.length === 0 ? (
+        <p className="dim">Belum ada konfrontasi lane yang jelas di scope ini.</p>
+      ) : (
+        laneMatchups.map((g) => <LaneMatchupCard key={g.label} group={g} />)
+      )}
       <div className="dim" style={{ fontSize: 12, marginTop: 6 }}>
-        Duo lane kita vs duo lawan berhadapan (safe↔off), hasil lane pakai core (pos1/pos3, STRATZ). Scope =
-        filter aktif di atas. Lane — = no-data/roamer.
+        Berdasar lane ASLI (OpenDota lane_role) + sisi → lane fisik, bukan posisi net-worth. Cuma match di mana
+        lane kita beneran ketemu lawan (swap/roam/uncontested di-skip). Hasil lane @~10min (STRATZ). Scope = filter di atas.
       </div>
 
       {/* sekunder: tabel + chart */}
