@@ -4,9 +4,8 @@ name: roster
 # fetch tim BARU (mis. tim EWC yang baru masuk) + tim stale otomatis. Butuh secret STRATZ_TOKEN.
 on:
   schedule:
-    - cron: "45 4 * * 1" # MINGGUAN, Senin 04:45 UTC. roster.ts TTL 7d → tim di-refresh ~seminggu sekali.
-    # Catatan: tim BARU (mis. entrant turnamen baru) baru dapet roster pas run mingguan berikutnya
-    # (bisa telat sampai 7 hari). Kalau ada event & butuh cepat, trigger manual: Actions → roster → Run.
+    - cron: "45 4 * * *" # HARIAN 04:45 UTC. Di luar rantai ingest→stratz→aggregate (beda cadence).
+    # roster.ts TTL 3d → tim di-refresh tiap ~3 hari (nangkep transfer/standin), tim baru <1 hari.
   workflow_dispatch: {}
 
 concurrency:

@@ -1,10 +1,11 @@
 name: stratz-lane
 
-# Backfill lane_result (STRATZ) buat match baru. Jalan tiap jam SETELAH ingest (cursor stratz_cursor,
-# match_id asc → catch-up ke match terbaru). Butuh secret STRATZ_TOKEN.
+# Backfill lane_result (STRATZ). RANTAI: jalan otomatis SETELAH ingest selesai (workflow_run),
+# bukan jadwal timing → match baru langsung dapet lane. Butuh secret STRATZ_TOKEN.
 on:
-  schedule:
-    - cron: "20 * * * *" # tiap jam :20 (ingest :00 duluan biar match-nya udah masuk)
+  workflow_run:
+    workflows: ["ingest"] # = name: ingest. workflow_run cuma trigger dari default branch (main).
+    types: [completed]
   workflow_dispatch: {}
 
 concurrency:
@@ -14,6 +15,8 @@ concurrency:
 jobs:
   stratz:
     runs-on: ubuntu-latest
+    # cuma lanjut kalau ingest SUKSES (jangan proses kalau ingest gagal). Manual dispatch tetap jalan.
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
     defaults:
       run:
         working-directory: worker

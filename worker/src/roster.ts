@@ -17,7 +17,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 const STRATZ_TOKEN = (process.env.STRATZ_TOKEN ?? "").trim();
 const THROTTLE_MS = 1900; // 2000/jam cap → 1.9s aman (sama kayak stratz.ts)
-const TTL_DAYS = Number(process.env.ROSTER_TTL_DAYS ?? "7");
+const TTL_DAYS = Number(process.env.ROSTER_TTL_DAYS ?? "3");
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 let lastCall = 0;

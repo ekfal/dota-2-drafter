@@ -1,10 +1,11 @@
 name: aggregate
 
-# Rebuild tabel hitungan (tournament_hero_stats) dari picks_bans. TERPISAH dari ingest,
-# jalan lebih jarang (harian) biar murah. Rebuildable — aman di-recompute penuh.
+# Rebuild tabel hitungan (tournament_hero_stats) dari picks_bans. RANTAI: jalan otomatis SETELAH
+# stratz selesai (workflow_run) → aggregate pakai data terlengkap. Rebuildable — aman recompute.
 on:
-  schedule:
-    - cron: "30 4 * * *" # harian 04:30 UTC
+  workflow_run:
+    workflows: ["stratz-lane"] # = name: stratz-lane (nama workflow stratz), bukan nama file.
+    types: [completed]
   workflow_dispatch: {}
 
 concurrency:
@@ -14,6 +15,8 @@ concurrency:
 jobs:
   aggregate:
     runs-on: ubuntu-latest
+    # cuma lanjut kalau stratz SUKSES. Manual dispatch tetap jalan.
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
     defaults:
       run:
         working-directory: worker
