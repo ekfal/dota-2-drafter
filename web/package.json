@@ -4,6 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
+    "dev:clean": "npx --yes kill-port 3000 && next dev -p 3000",
     "build": "next build",
     "start": "next start",
     "typecheck": "tsc --noEmit"
