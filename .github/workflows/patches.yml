@@ -1,0 +1,33 @@
+name: patches
+
+# Seed patches dari OpenDota /constants/patch + tag matches.patch_id by start_time. MINGGUAN:
+# nangkep patch baru (mis. 7.42 pas rilis) + nambal match yang patch_id-nya NULL. Idempotent.
+# Di luar rantai ingest→stratz→aggregate (beda cadence, jarang berubah).
+on:
+  schedule:
+    - cron: "15 4 * * 1" # MINGGUAN, Senin 04:15 UTC
+  workflow_dispatch: {}
+
+concurrency:
+  group: patches
+  cancel-in-progress: false
+
+jobs:
+  patches:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: worker
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: worker/package-lock.json
+      - run: npm ci
+      - run: npm run patches
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          OPENDOTA_API_KEY: ${{ secrets.OPENDOTA_API_KEY }}
