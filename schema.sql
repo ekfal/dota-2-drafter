@@ -186,7 +186,12 @@ insert into team_aliases (alias_team_id, canonical_team_id, note) values
   (8215874,  10186497, 'CHILE (national)'),
   (10186715, 8193371,  'Myanmar (national)'),
   (10186456, 9517326,  'Egypt (national; tie 3g-3g, canonical = roster terbesar)'),
-  (10186432, 10186431, 'Algeria (national)')
+  (10186432, 10186431, 'Algeria (national)'),
+  (9572001,  9824702,  'TEAM VISION -> PVISION (6/6 roster subset; 3 ekstra standin era lama)'),
+  (10176802, 10182458, 'Syria (national)'),
+  (8830114,  10182860, 'Kosova/Kosovo (national)'),
+  (10182309, 10020555, 'PTime -> PlayTime (5/5 roster subset)'),
+  (10144738, 9366802,  '超耐磨 (nama identik CJK)')
 on conflict (alias_team_id) do update set canonical_team_id = excluded.canonical_team_id, note = excluded.note;
 
 -- Watermark incremental (mis. last_promatch_id)
