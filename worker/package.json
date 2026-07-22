@@ -19,6 +19,7 @@
     "stratz:local": "tsx --env-file=.env.local src/stratz.ts",
     "roster": "tsx src/roster.ts",
     "roster:local": "tsx --env-file=.env.local src/roster.ts",
+    "detect-merge:local": "tsx --env-file=.env.local src/detect-merge.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
