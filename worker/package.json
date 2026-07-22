@@ -20,6 +20,8 @@
     "roster": "tsx src/roster.ts",
     "roster:local": "tsx --env-file=.env.local src/roster.ts",
     "detect-merge:local": "tsx --env-file=.env.local src/detect-merge.ts",
+    "pro-players": "tsx src/pro-players.ts",
+    "pro-players:local": "tsx --env-file=.env.local src/pro-players.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

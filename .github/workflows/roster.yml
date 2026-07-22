@@ -31,3 +31,10 @@ jobs:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
           STRATZ_TOKEN: ${{ secrets.STRATZ_TOKEN }}
+      # players.team_id + is_pro dari OpenDota /proPlayers (1 request bulk, cadence pro-data sama)
+      - run: npm run pro-players
+        if: always() # roster gagal (STRATZ down) jangan blok pro-players (sumber beda)
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          OPENDOTA_API_KEY: ${{ secrets.OPENDOTA_API_KEY }}
