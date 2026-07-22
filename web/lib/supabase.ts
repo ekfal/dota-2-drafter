@@ -15,7 +15,14 @@ export function getServerSupabase(): SupabaseClient {
       "Set NEXT_PUBLIC_SUPABASE_URL & NEXT_PUBLIC_SUPABASE_ANON_KEY di web/.env.local"
     );
   }
-  return createClient(url, anonKey, { auth: { persistSession: false } });
+  // no-store WAJIB: Next 14 patch global fetch → GET supabase ke-cache di Data Cache
+  // (persist .next/cache, TIDAK dimatiin force-dynamic) → UI basi walau DB update.
+  return createClient(url, anonKey, {
+    auth: { persistSession: false },
+    global: {
+      fetch: (input: RequestInfo | URL, init?: RequestInit) => fetch(input, { ...init, cache: "no-store" }),
+    },
+  });
 }
 
 /**
