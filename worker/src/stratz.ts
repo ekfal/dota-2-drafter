@@ -12,13 +12,21 @@
  * Throttle STRATZ TERPISAH dari OpenDota (2000/jam → 1.9s/req). Watermark: stratz_cursor
  * (match_id asc). Idempotent: update lane_result, aman re-run.
  *
- * Env: SUPABASE_URL, SUPABASE_SERVICE_KEY, STRATZ_TOKEN, STRATZ_BATCH (default 900).
+ * RESCAN pass (tiap run, habis cursor loop): match di belakang cursor yang SEMUA row-nya
+ * lane_result NULL = STRATZ belum punya data waktu itu → re-fetch, newest-first, cap
+ * STRATZ_RESCAN_CAP. (NULL per-row roamer/jungle normal, bukan target — cuma match full-NULL.)
+ * ponytail: match mati permanen (STRATZ never parse) ikut ke-retry tiap run dalam cap; kalau
+ * quota kebuang, tambah kolom retry-count / exclude list.
+ *
+ * Env: SUPABASE_URL, SUPABASE_SERVICE_KEY, STRATZ_TOKEN, STRATZ_BATCH (default 900),
+ *      STRATZ_RESCAN_CAP (default 150).
  */
 import { createDb, getState, setState } from "./core";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 const STRATZ_TOKEN = (process.env.STRATZ_TOKEN ?? "").trim();
 const BATCH = Number(process.env.STRATZ_BATCH ?? "900");
+const RESCAN_CAP = Number(process.env.STRATZ_RESCAN_CAP ?? "150");
 const CURSOR_KEY = "stratz_cursor";
 const THROTTLE_MS = 1900; // 2000/jam cap → 1.9s aman
 const PAGE = 200;
@@ -268,7 +276,70 @@ async function main(): Promise<void> {
     }
   }
 
+  await rescanNulls(db, s, cursor);
   await report(db, s, cursor);
+}
+
+// RESCAN: match <= cursor yang SEMUA row match_players-nya lane_result NULL → dulu STRATZ belum
+// punya data (matchesNoData) tapi cursor keburu maju. Newest-first (data baru paling mungkin
+// nongol), cap RESCAN_CAP. Fail satu match → skip lanjut (bukan stop; cursor gak terlibat).
+async function rescanNulls(db: SupabaseClient, s: Stats, cursor: number): Promise<void> {
+  if (RESCAN_CAP <= 0) return;
+  // match yang PUNYA lane_result → exclude. Paginated (rows > 1000).
+  const covered = new Set<number>();
+  for (let f = 0; ; f += 1000) {
+    const { data, error } = await db
+      .from("match_players")
+      .select("match_id")
+      .not("lane_result", "is", null)
+      .order("match_id", { ascending: true })
+      .range(f, f + 999)
+      .returns<{ match_id: number }[]>();
+    if (error) throw new Error(`rescan read covered: ${error.message}`);
+    for (const r of data ?? []) covered.add(r.match_id);
+    if (!data || data.length < 1000) break;
+  }
+  const targets: number[] = [];
+  for (let f = 0; ; f += 1000) {
+    const { data, error } = await db
+      .from("matches")
+      .select("match_id")
+      .lte("match_id", cursor)
+      .order("match_id", { ascending: false })
+      .range(f, f + 999)
+      .returns<{ match_id: number }[]>();
+    if (error) throw new Error(`rescan read matches: ${error.message}`);
+    for (const r of data ?? []) if (!covered.has(r.match_id)) targets.push(r.match_id);
+    if (!data || data.length < 1000 || targets.length >= RESCAN_CAP) break;
+  }
+  const picked = targets.slice(0, RESCAN_CAP);
+  console.log(`\nRESCAN: ${targets.length} match full-NULL di belakang cursor, proses ${picked.length} (cap ${RESCAN_CAP})`);
+  if (picked.length === 0) return;
+
+  const before = s.rowsSet;
+  for (let i = 0; i < picked.length; i += 90) {
+    const chunk = picked.slice(i, i + 90);
+    const { data, error } = await db
+      .from("match_players")
+      .select("match_id, account_id, hero_id")
+      .in("match_id", chunk)
+      .returns<OurRow[]>();
+    if (error) throw new Error(`rescan read match_players: ${error.message}`);
+    const byMatch = new Map<number, OurRow[]>();
+    for (const r of data ?? []) {
+      const arr = byMatch.get(r.match_id) ?? [];
+      arr.push(r);
+      byMatch.set(r.match_id, arr);
+    }
+    for (const mid of chunk) {
+      try {
+        await processMatch(db, mid, byMatch.get(mid) ?? [], s);
+      } catch (e) {
+        console.error(`  rescan ${mid}: FAIL — ${e instanceof Error ? e.message : e}. Skip.`);
+      }
+    }
+  }
+  console.log(`RESCAN done: rows kesisi run ini dari rescan=${s.rowsSet - before}`);
 }
 
 async function report(db: SupabaseClient, s: Stats, cursor: number): Promise<void> {
