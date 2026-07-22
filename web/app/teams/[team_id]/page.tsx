@@ -878,6 +878,22 @@ export default async function TeamPage({
     .sort((a, b) => b.bans - a.bans)
     .slice(0, 15);
 
+  // ban LAWAN pas hadapi tim ini (kebalikan banRows yang = ban tim ini). Scope filter sama.
+  // inPool = hero itu ada di pick tim ini (scope ini) → lawan ban andalan mereka.
+  const oppBanMap = new Map<number, { name: string; img: string | null; bans: number }>();
+  for (const r of allPb) {
+    if (r.is_pick || side.get(r.match_id) === (r.team === 0)) continue; // pick / sisi tim ini → skip
+    const b =
+      oppBanMap.get(r.hero_id) ??
+      { name: r.hero?.localized_name ?? String(r.hero_id), img: r.hero?.img ?? null, bans: 0 };
+    b.bans++;
+    oppBanMap.set(r.hero_id, b);
+  }
+  const oppBanRows = [...oppBanMap.entries()]
+    .map(([hero_id, v]) => ({ hero_id, ...v, inPool: pickMap.has(hero_id) }))
+    .sort((a, b) => b.bans - a.bans)
+    .slice(0, 15);
+
   // #3 Last 10 matches (ikut filter, terbaru dulu): vs lawan + W/L + tanggal + hero pick tim + match id.
   const teamHeroesByMatch = new Map<number, { hero_id: number; name: string; img: string | null; position: number | null }[]>();
   for (const r of teamMp) {
@@ -1028,11 +1044,12 @@ export default async function TeamPage({
         lane kita beneran ketemu lawan (swap/roam/uncontested di-skip). Hasil lane @~10min (STRATZ). Scope = filter di atas.
       </div>
 
-      {/* sekunder: tabel + chart */}
+      {/* sekunder: tabel + chart. "Banned by this team" = ban TIM INI; "Banned by opponents" = ban LAWAN pas hadapi tim ini. */}
       <div className="h2">Most picked / banned</div>
       <div className="data-grid">
         <PickTable rows={pickRows} />
         <BanTable rows={banRows} />
+        <OppBanTable rows={oppBanRows} totalMatches={filtered.length} />
       </div>
 
       <div className="h2">Winrate by side</div>
@@ -1097,7 +1114,7 @@ function BanTable({ rows }: { rows: { hero_id: number; name: string; img: string
     <table className="data-table">
       <thead>
         <tr>
-          <th>Most Banned</th>
+          <th title="Hero yang tim ini ban">Banned by This Team</th>
           <th className="num">Bans</th>
         </tr>
       </thead>
@@ -1123,6 +1140,63 @@ function BanTable({ rows }: { rows: { hero_id: number; name: string; img: string
                   </Link>
                 </td>
                 <td className="num">{r.bans}</td>
+              </tr>
+            );
+          })
+        )}
+      </tbody>
+    </table>
+  );
+}
+
+// ban LAWAN pas hadapi tim ini. ● gold = hero ada di pool pick tim ini (lawan ban andalan).
+function OppBanTable({
+  rows,
+  totalMatches,
+}: {
+  rows: { hero_id: number; name: string; img: string | null; bans: number; inPool: boolean }[];
+  totalMatches: number;
+}) {
+  return (
+    <table className="data-table">
+      <thead>
+        <tr>
+          <th title="Hero yang LAWAN ban pas hadapi tim ini">Banned by Opponents</th>
+          <th className="num" title={`% dari ${totalMatches} match (scope filter)`}>
+            Bans <span className="dim">/ {totalMatches}m</span>
+          </th>
+        </tr>
+      </thead>
+      <tbody>
+        {rows.length === 0 ? (
+          <tr>
+            <td colSpan={2} className="dim">
+              No data
+            </td>
+          </tr>
+        ) : (
+          rows.map((r, i) => {
+            const src = heroSrc(r.img);
+            const pct = totalMatches ? Math.round((r.bans / totalMatches) * 100) : 0;
+            return (
+              <tr key={i}>
+                <td>
+                  <Link className="hero-cell" href={`/heroes/${r.hero_id}`}>
+                    {src ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img className="hero-mini" src={src} alt="" width={34} height={20} />
+                    ) : null}
+                    {r.name}
+                    {r.inPool ? (
+                      <span className="opp-ban-pool" title="Ada di hero pool tim ini — lawan ban andalan">
+                        ●
+                      </span>
+                    ) : null}
+                  </Link>
+                </td>
+                <td className="num">
+                  {r.bans}x <span className="dim">({pct}%)</span>
+                </td>
               </tr>
             );
           })
