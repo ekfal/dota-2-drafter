@@ -160,6 +160,35 @@ create table team_player_roles (
 );
 create index team_player_roles_team_idx on team_player_roles (team_id);
 
+-- Entity resolution: alias team_id → canonical team_id (org sama re-register → OpenDota mint id
+-- baru; contoh Air Defence ×3 id). Diisi MANUAL hasil review deteksi merge (roster overlap +
+-- nama identik) — BUKAN auto-merge (roster-overlap doang = jebakan: pemain club+timnas ≠ org sama;
+-- nama sama roster 0 = collision, mis. BoomBoys). matches.radiant/dire_team_id di-rewrite ke
+-- canonical (backfill + ingest map di core.ts); mapping asli kesimpen di sini → re-ingest + apply
+-- = idempotent. Canonical = id dengan match terbanyak saat merge.
+create table team_aliases (
+  alias_team_id     bigint primary key,
+  canonical_team_id bigint not null,
+  note              text
+);
+
+-- Seed hasil review 2026-07-22 (grup A org + grup B timnas; C/D exclude — lihat komentar atas).
+insert into team_aliases (alias_team_id, canonical_team_id, note) values
+  (9530716,  9828921,  'Air Defence'),
+  (10144754, 9828921,  'Air Defence'),
+  (9729268,  9906210,  'Teiko'),
+  (9628678,  9906210,  'Teiko'),
+  (9691942,  9593609,  'Nethercore'),
+  (9717312,  10164106, 'Silent Shadows'),
+  (9461271,  9397016,  'Elite Eclipse'),
+  (9729342,  9397016,  'Elite Eclipse'),
+  (9834545,  9482420,  'Eye Gaming (tie 1g-1g, canonical = id tertua)'),
+  (8215874,  10186497, 'CHILE (national)'),
+  (10186715, 8193371,  'Myanmar (national)'),
+  (10186456, 9517326,  'Egypt (national; tie 3g-3g, canonical = roster terbesar)'),
+  (10186432, 10186431, 'Algeria (national)')
+on conflict (alias_team_id) do update set canonical_team_id = excluded.canonical_team_id, note = excluded.note;
+
 -- Watermark incremental (mis. last_promatch_id)
 create table ingest_state (
   key         text primary key,
@@ -209,6 +238,7 @@ alter table team_hero_stats       enable row level security;
 alter table hero_pairs            enable row level security;
 alter table hero_role_dist        enable row level security;
 alter table team_player_roles     enable row level security;
+alter table team_aliases          enable row level security;
 alter table ingest_state          enable row level security;
 
 create policy read_patches      on patches               for select using (true);
@@ -224,4 +254,5 @@ create policy read_teamhstats   on team_hero_stats       for select using (true)
 create policy read_heropairs    on hero_pairs            for select using (true);
 create policy read_heroroles    on hero_role_dist        for select using (true);
 create policy read_roles        on team_player_roles     for select using (true);
+create policy read_aliases      on team_aliases          for select using (true);
 create policy read_ingest       on ingest_state          for select using (true);

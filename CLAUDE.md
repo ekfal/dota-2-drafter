@@ -40,7 +40,7 @@ Tabel **mentah** (salinan slim OpenDota):
 `patches`, `leagues`, `teams`, `players`, `heroes`, `matches`, `picks_bans`, `match_players`.
 
 Tabel **hitungan** (derived, di-rebuild dari sumber):
-`tournament_hero_stats`, `team_hero_stats`, `hero_pairs` (kanonik `hero_id_a < hero_id_b`), `hero_role_dist`, `team_player_roles` (roster kanonik per tim dari STRATZ: `team_id, account_id, position 1-5, raw_position, is_active` — `account_id` TANPA FK ke `players` krn roster superset), plus `ingest_state` (watermark).
+`tournament_hero_stats`, `team_hero_stats`, `hero_pairs` (kanonik `hero_id_a < hero_id_b`), `hero_role_dist`, `team_player_roles` (roster kanonik per tim dari STRATZ: `team_id, account_id, position 1-5, raw_position, is_active` — `account_id` TANPA FK ke `players` krn roster superset), plus `ingest_state` (watermark), plus `team_aliases` (entity resolution: alias team_id → canonical, KURASI MANUAL hasil review — matches di-rewrite ke canonical saat backfill + ingest; jangan auto-merge dari roster overlap doang).
 
 Kolom STRATZ-derived di `match_players`: `lane_result` (win-lane @~10min, F2a). `position` per-match tetap net-worth-heuristik (`positions.ts`) — dipakai lane_result/drill; role KANONIK stabil per pemain ada di `team_player_roles` (UI group pool pakai ini, bukan per-match position).
 

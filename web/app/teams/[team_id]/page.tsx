@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { getServerSupabase, pageAll } from "@/lib/supabase";
 import PrintButton from "./PrintButton";
 import Filters from "./Filters";
@@ -228,7 +229,13 @@ export default async function TeamPage({
 
   const supabase = getServerSupabase();
 
-  const [teamRes, metaRes, rolesRes] = await Promise.all([
+  const [aliasRes, teamRes, metaRes, rolesRes] = await Promise.all([
+    // entity resolution: id alias → redirect ke canonical (matches udah di-rewrite ke canonical)
+    supabase
+      .from("team_aliases")
+      .select("canonical_team_id")
+      .eq("alias_team_id", id)
+      .maybeSingle<{ canonical_team_id: number }>(),
     supabase.from("teams").select("name, rating, logo_url").eq("team_id", id).maybeSingle<{
       name: string | null;
       rating: number | null;
@@ -253,6 +260,8 @@ export default async function TeamPage({
       .eq("team_id", id)
       .returns<RoleRow[]>(),
   ]);
+
+  if (aliasRes.data) redirect(`/teams/${aliasRes.data.canonical_team_id}`);
 
   const team = teamRes.data;
   const teamName = team?.name ?? `Team ${id}`;

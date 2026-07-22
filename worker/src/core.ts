@@ -183,6 +183,20 @@ async function getPatches(db: SupabaseClient): Promise<PatchRow[]> {
   return patchCache;
 }
 
+// team_aliases (entity resolution): alias team_id → canonical. Data lama udah di-backfill;
+// map di sini jaga match BARU yang masih dateng pakai id alias (OpenDota kadang lag).
+let aliasCache: Map<number, number> | null = null;
+async function getTeamAliases(db: SupabaseClient): Promise<Map<number, number>> {
+  if (aliasCache) return aliasCache;
+  const { data, error } = await db
+    .from("team_aliases")
+    .select("alias_team_id, canonical_team_id")
+    .returns<{ alias_team_id: number; canonical_team_id: number }[]>();
+  if (error) throw new Error(`read team_aliases: ${error.message}`);
+  aliasCache = new Map((data ?? []).map((r) => [r.alias_team_id, r.canonical_team_id]));
+  return aliasCache;
+}
+
 // ---------- per-match ingest (idempotent) ----------
 export async function ingestMatch(db: SupabaseClient, m: ProMatch): Promise<IngestStatus> {
   const detail = await opendota<MatchDetail>(`/matches/${m.match_id}`);
@@ -201,13 +215,17 @@ export async function ingestMatch(db: SupabaseClient, m: ProMatch): Promise<Inge
   await upsertTeam(db, m.dire_team_id, m.dire_name);
 
   const patch_id = pickPatchId(await getPatches(db), m.start_time);
+  // alias → canonical (teams row alias tetap di-upsert di atas buat name lookup)
+  const aliases = await getTeamAliases(db);
+  const radTeam = m.radiant_team_id ? aliases.get(m.radiant_team_id) ?? m.radiant_team_id : null;
+  const direTeam = m.dire_team_id ? aliases.get(m.dire_team_id) ?? m.dire_team_id : null;
   const { error: mErr } = await db.from("matches").upsert(
     {
       match_id: m.match_id,
       league_id: m.leagueid && m.leagueid > 0 ? m.leagueid : null,
       patch_id,
-      radiant_team_id: m.radiant_team_id || null,
-      dire_team_id: m.dire_team_id || null,
+      radiant_team_id: radTeam,
+      dire_team_id: direTeam,
       radiant_win: m.radiant_win,
       start_time: m.start_time,
       duration: m.duration,
