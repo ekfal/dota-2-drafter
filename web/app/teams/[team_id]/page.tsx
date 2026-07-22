@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { getServerSupabase, pageAll } from "@/lib/supabase";
 import PrintButton from "./PrintButton";
 import Filters from "./Filters";
+import Section from "./Section";
 import PoolAccordion from "./PoolAccordion";
 import RoleDuos from "./RoleDuos";
 import CondPickBan from "./CondPickBan";
@@ -957,7 +958,7 @@ export default async function TeamPage({
       </div>
 
       {/* #3 Last 10 matches (ikut filter) */}
-      <div className="h2">Last 10 matches</div>
+      <Section title="Last 10 matches">
       {last10.length === 0 ? (
         <p className="dim">Belum ada match di scope ini.</p>
       ) : (
@@ -989,39 +990,51 @@ export default async function TeamPage({
           ))}
         </div>
       )}
+      </Section>
 
       {/* position-pool + hero drill-down (client accordion) */}
-      <div className="h2">
-        Hero pool by position{" "}
-        <span className="dim" style={{ fontSize: 12, fontWeight: 400 }}>
-          · role {rosterSource === "stratz" ? "roster STRATZ" : "derived (Method C)"}
-        </span>
-      </div>
+      <Section
+        title={
+          <>
+            Hero pool by position{" "}
+            <span className="dim" style={{ fontSize: 12, fontWeight: 400 }}>
+              · role {rosterSource === "stratz" ? "roster STRATZ" : "derived (Method C)"}
+            </span>
+          </>
+        }
+      >
       <PoolAccordion positions={positions} />
       <div className="dim" style={{ fontSize: 12, marginTop: 6 }}>
         Role kanonik per pemain{rosterSource === "stratz" ? " (roster aktif STRATZ)" : " (derivasi net-worth + lane_role — tim ini belum ada di roster STRATZ)"}.
         Klik portrait hero → match tim pick hero itu (scope filter). Standin/sub ada di “+N other player”.
       </div>
+      </Section>
 
       {/* #2 role-duo pairing (GAME winrate) */}
-      <div className="h2">Role-duo combinations</div>
+      <Section title="Role-duo combinations">
       <RoleDuos groups={roleDuoGroups} />
+      </Section>
 
       {/* #3 conditional pick → ban — FIX-A: lift, all-time team-wide */}
-      <div className="h2">
-        Conditional pick → ban{" "}
-        <span className="dim" style={{ fontSize: 12, fontWeight: 400 }}>· all-time, team-wide</span>{" "}
-        <span
-          className="cpb-help"
-          title={`Lift = frekuensi tim ban Y saat pick X ÷ baseline ban Y. >1 = ban spesifik (bukan meta), urut lift desc. Angka: lift× dan count (co/pick). Pool ${condM} match lintas patch (di luar filter di atas). Tampil pick ≥${COND_PICK_GATE}; reliable ≥${COND_RELIABLE_PX}, di bawah = indikatif (n<8, diredam). co ≥${COND_CO_GATE}.`}
-        >
-          ?
-        </span>
-      </div>
+      <Section
+        title={
+          <>
+            Conditional pick → ban{" "}
+            <span className="dim" style={{ fontSize: 12, fontWeight: 400 }}>· all-time, team-wide</span>{" "}
+            <span
+              className="cpb-help"
+              title={`Lift = frekuensi tim ban Y saat pick X ÷ baseline ban Y. >1 = ban spesifik (bukan meta), urut lift desc. Angka: lift× dan count (co/pick). Pool ${condM} match lintas patch (di luar filter di atas). Tampil pick ≥${COND_PICK_GATE}; reliable ≥${COND_RELIABLE_PX}, di bawah = indikatif (n<8, diredam). co ≥${COND_CO_GATE}.`}
+            >
+              ?
+            </span>
+          </>
+        }
+      >
       <CondPickBan picks={condPicks} />
+      </Section>
 
       {/* duo-lane win-lane% (STRATZ) */}
-      <div className="h2">Lane winrate (STRATZ)</div>
+      <Section title="Lane winrate (STRATZ)">
       <div className="card lane-wr">
         {laneAggs.map((l) => (
           <LaneBar key={l.label} agg={l} />
@@ -1031,9 +1044,10 @@ export default async function TeamPage({
           tie di-exclude (W-T-L tetap ditampilin). Rep core: Safelane=pos1, Mid=pos2, Offlane=pos3. Roamer/no-lane di-skip.
         </div>
       </div>
+      </Section>
 
       {/* #6 lane matchup vs opponent — pakai lane_role (lane asli), lane fisik. current filter scope */}
-      <div className="h2">Lane matchups vs opponent (STRATZ)</div>
+      <Section title="Lane matchups vs opponent (STRATZ)">
       {laneMatchups.length === 0 ? (
         <p className="dim">Belum ada konfrontasi lane yang jelas di scope ini.</p>
       ) : (
@@ -1043,20 +1057,23 @@ export default async function TeamPage({
         Berdasar lane ASLI (OpenDota lane_role) + sisi → lane fisik, bukan posisi net-worth. Cuma match di mana
         lane kita beneran ketemu lawan (swap/roam/uncontested di-skip). Hasil lane @~10min (STRATZ). Scope = filter di atas.
       </div>
+      </Section>
 
       {/* sekunder: tabel + chart. "Banned by this team" = ban TIM INI; "Banned by opponents" = ban LAWAN pas hadapi tim ini. */}
-      <div className="h2">Most picked / banned</div>
+      <Section title="Most picked / banned">
       <div className="data-grid">
         <PickTable rows={pickRows} />
         <BanTable rows={banRows} />
         <OppBanTable rows={oppBanRows} totalMatches={filtered.length} />
       </div>
+      </Section>
 
-      <div className="h2">Winrate by side</div>
+      <Section title="Winrate by side">
       <div className="card">
         <SideBar label="Radiant" wins={sideStat.radW} games={sideStat.radG} />
         <SideBar label="Dire" wins={sideStat.dirW} games={sideStat.dirG} />
       </div>
+      </Section>
     </main>
   );
 }

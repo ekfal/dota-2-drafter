@@ -1291,6 +1291,43 @@ button.pos-others-toggle.open {
   grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
   gap: 16px;
 }
+/* section show/hide (team page) — header klik-able, chevron dim → gold pas hover */
+.sec-head {
+  cursor: pointer;
+  user-select: none;
+}
+.sec-chev {
+  display: inline-block;
+  margin-right: 6px;
+  font-size: 11px;
+  color: var(--text-dim);
+  transition: transform 0.15s ease;
+}
+.sec-chev.open {
+  transform: rotate(90deg);
+}
+.sec-head:hover .sec-chev {
+  color: var(--accent);
+}
+
+/* PDF/print: jangan potong kartu, baris tabel, bar di page break; header jangan yatim di bawah. */
+.pdf-light .card,
+.pdf-light tr,
+.pdf-light .l10-row,
+.pdf-light .lm-row,
+.pdf-light .hstat,
+.pdf-light .bar-row {
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
+.pdf-light .h2 {
+  break-after: avoid;
+  page-break-after: avoid;
+}
+.pdf-light .sec-chev {
+  display: none; /* chevron gak usah ikut PDF */
+}
+
 /* marker hero pool di tabel Banned by Opponents — gold kecil (DESIGN: aksen gold, bukan teks inline) */
 .opp-ban-pool {
   margin-left: 5px;
