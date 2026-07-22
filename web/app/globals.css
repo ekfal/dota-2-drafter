@@ -904,13 +904,21 @@ button.pos-others-toggle.open {
   border: 1px solid var(--border);
   white-space: nowrap;
 }
+/* border = precomputed color-mix(win/loss 45%, border) — html2canvas (PDF export) gak bisa parse
+   color() hasil color-mix; hex statis + override .pdf-light di bawah. */
 .lane-chip.lane-won {
   color: var(--win);
-  border-color: color-mix(in srgb, var(--win) 45%, var(--border));
+  border-color: #595c1e;
 }
 .lane-chip.lane-lost {
   color: var(--loss);
-  border-color: color-mix(in srgb, var(--loss) 45%, var(--border));
+  border-color: #713327;
+}
+.pdf-light .lane-chip.lane-won {
+  border-color: #9fb08b;
+}
+.pdf-light .lane-chip.lane-lost {
+  border-color: #c69391;
 }
 .lane-chip.lane-tie {
   color: var(--text-muted);
