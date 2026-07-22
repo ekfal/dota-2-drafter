@@ -2,8 +2,9 @@ import Link from "next/link";
 import { getServerSupabase } from "@/lib/supabase";
 
 // #5 player page /players/[account_id] — mirror #4 (hero page).
-// Team di-derive dari match (sisi tim yg pemain jalanin per game) — players.team_id kosong di DB.
-// is_pro juga kosong → indikator pro TIDAK ditampilkan (jangan nebak). Lihat known-issue di DESIGN/laporan.
+// Team: players.team_id (resmi, dari /proPlayers via pro-players.ts, udah canonical via team_aliases)
+// kalau ada; fallback match-derived (vote sisi terbanyak) buat non-pro / pro yang team-nya di luar
+// DB kita. Badge PRO kalau is_pro=true. Beda sumber team dikasih tau via tooltip (DESIGN: badge+tooltip).
 export const dynamic = "force-dynamic";
 
 const CDN = "https://cdn.cloudflare.steamstatic.com";
@@ -15,6 +16,9 @@ function heroSrc(img: string | null | undefined): string | null {
 interface PlayerRow {
   account_id: number;
   name: string | null;
+  team_id: number | null;
+  is_pro: boolean | null;
+  team: { name: string | null } | null;
 }
 interface MpRow {
   match_id: number;
@@ -58,7 +62,11 @@ export default async function PlayerPage({ params }: { params: { account_id: str
 
   const supabase = getServerSupabase();
   const [playerRes, mpRes] = await Promise.all([
-    supabase.from("players").select("account_id, name").eq("account_id", id).maybeSingle<PlayerRow>(),
+    supabase
+      .from("players")
+      .select("account_id, name, team_id, is_pro, team:teams!players_team_id_fkey(name)")
+      .eq("account_id", id)
+      .maybeSingle<PlayerRow>(),
     supabase
       .from("match_players")
       .select(
@@ -91,6 +99,17 @@ export default async function PlayerPage({ params }: { params: { account_id: str
   let teamName: string | null = null;
   let best = 0;
   for (const [tid, t] of teamVote) if (t.n > best) ((best = t.n), (teamId = tid), (teamName = t.name));
+
+  // team resmi (players.team_id, canonical) menang; match-derived jadi fallback.
+  const isPro = playerRes.data?.is_pro === true;
+  const officialTeamId = playerRes.data?.team_id ?? null;
+  if (officialTeamId) {
+    teamId = officialTeamId;
+    teamName = playerRes.data?.team?.name ?? `Team ${officialTeamId}`;
+  }
+  const teamSourceTip = officialTeamId
+    ? "Team resmi (OpenDota pro registry)"
+    : "Derived dari match (sisi yang paling sering dimainkan)";
 
   // stat overall
   const games = mpData.length;
@@ -162,14 +181,22 @@ export default async function PlayerPage({ params }: { params: { account_id: str
 
   return (
     <main className="container">
-      {/* header — NO pro indicator (is_pro kosong di DB) */}
       <div className="team-header">
         <div className="team-logo-fallback">{playerName.slice(0, 2).toUpperCase()}</div>
         <div>
-          <div className="team-title">{playerName}</div>
+          <div className="team-title">
+            {playerName}
+            {isPro ? (
+              <span className="badge-pro" title="Pro player (OpenDota pro registry)">
+                PRO
+              </span>
+            ) : null}
+          </div>
           <div className="team-meta">
             {teamId ? (
-              <Link href={`/teams/${teamId}`}>{teamName ?? `Team ${teamId}`}</Link>
+              <span title={teamSourceTip}>
+                <Link href={`/teams/${teamId}`}>{teamName ?? `Team ${teamId}`}</Link>
+              </span>
             ) : (
               <span className="dim">No team</span>
             )}{" "}
